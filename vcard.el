@@ -1,8 +1,8 @@
 ;;; vcard.el --- Complete vCard 4.0 (RFC 6350) parser and serializer -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2025 Free Software Foundation, Inc.
+;; Copyright (C) 2025 John Wiegley
 
-;; Author: John Wiegley <johnw@newartisans.com>
+;; Author: John Wiegley <johnw@gnu.org>
 ;; Version: 1.0.0
 ;; Package-Requires: ((emacs "25.1"))
 ;; Keywords: comm, data, vcard
@@ -153,6 +153,16 @@
     :initform nil
     :type list
     :documentation "EMAIL property.")
+   (impp
+    :initarg :impp
+    :initform nil
+    :type list
+    :documentation "IMPP (instant messaging and presence protocol) property.")
+   (lang
+    :initarg :lang
+    :initform nil
+    :type list
+    :documentation "LANG (language) property.")
    (geo
     :initarg :geo
     :initform nil
@@ -303,6 +313,35 @@ Handles \\n (newline), \\\\ (backslash), \\, (comma), \\; (semicolon)."
           (setq i (1+ i)))))
     result))
 
+(defun vcard--split-text-list (value-string)
+  "Split text-list VALUE-STRING on unescaped commas.
+Returns list of unescaped component values.
+Used for CATEGORIES and NICKNAME properties."
+  (let ((result nil)
+        (current "")
+        (i 0)
+        (len (length value-string)))
+    (while (< i len)
+      (let ((char (aref value-string i)))
+        (cond
+         ;; Escaped character
+         ((and (= char ?\\) (< (1+ i) len))
+          (setq current (concat current (substring value-string i (+ i 2))))
+          (setq i (+ i 2)))
+         ;; Unescaped comma - split here
+         ((= char ?,)
+          (push (vcard--unescape-value current) result)
+          (setq current "")
+          (setq i (1+ i)))
+         ;; Regular character
+         (t
+          (setq current (concat current (string char)))
+          (setq i (1+ i))))))
+    ;; Add final component
+    (when (> (length current) 0)
+      (push (vcard--unescape-value current) result))
+    (nreverse result)))
+
 (defun vcard--escape-value (value)
   "Escape vCard VALUE according to RFC 6350.
 Escapes newlines (\\n), backslashes (\\\\), commas (\\,), semicolons (\\;)."
@@ -353,7 +392,9 @@ Returns string like \"PARAM1=val1;PARAM2=val2\" or empty string."
 (defun vcard--parse-property-line (line)
   "Parse a single vCard property LINE.
 Returns a plist (:group GROUP :name NAME :parameters PARAMS :value VALUE)."
-  (unless (string-match "^\\(?:\\([^.]+\\)\\.\\)?\\([^;:]+\\)\\(?:;\\([^:]*\\)\\)?:\\(.*\\)$" line)
+  ;; Group prefix pattern: only valid group names (alphanumeric, underscore, hyphen)
+  ;; This prevents dots in parameter values from being misinterpreted as group separators
+  (unless (string-match "^\\(?:\\([a-zA-Z0-9_-]+\\)\\.\\)?\\([^;:]+\\)\\(?:;\\([^:]*\\)\\)?:\\(.*\\)$" line)
     (signal 'vcard-parse-error (list "Invalid property line" line)))
 
   (let* ((group (match-string 1 line))
@@ -363,10 +404,14 @@ Returns a plist (:group GROUP :name NAME :parameters PARAMS :value VALUE)."
          (parameters (vcard--parse-parameters param-string))
          (value (vcard--unescape-value value-string)))
 
-    ;; Parse structured values for N and ADR
-    (when (member name '("N" "ADR"))
+    ;; Parse structured values for N, ADR, ORG, and GENDER (semicolon-separated components)
+    (when (member name '("N" "ADR" "ORG" "GENDER"))
       (setq value (mapcar #'vcard--unescape-value
                           (split-string value-string ";" nil))))
+
+    ;; Parse text-list values for CATEGORIES and NICKNAME (comma-separated components)
+    (when (member name '("CATEGORIES" "NICKNAME"))
+      (setq value (vcard--split-text-list value-string)))
 
     (list :group group
           :name name
@@ -378,9 +423,17 @@ Returns a plist (:group GROUP :name NAME :parameters PARAMS :value VALUE)."
 E.g., \"TEL\" -> tel, \"CALADRURI\" -> caladruri."
   (intern (downcase prop-name)))
 
+(defun vcard--is-cardinality-one-property-p (prop-name)
+  "Return non-nil if PROP-NAME has cardinality *1 (at most one).
+Per RFC 6350, these properties can appear at most once:
+N, BDAY, ANNIVERSARY, GENDER, REV, PRODID, UID, KIND."
+  (member prop-name '("N" "BDAY" "ANNIVERSARY" "GENDER" "REV"
+                      "PRODID" "UID" "KIND")))
+
 (defun vcard--add-property-to-vcard (vc prop-plist)
   "Add property PROP-PLIST to vcard object VC.
-PROP-PLIST is a plist from `vcard--parse-property-line'."
+PROP-PLIST is a plist from `vcard--parse-property-line'.
+Enforces cardinality constraints for *1 properties."
   (let* ((name (plist-get prop-plist :name))
          (prop (vcard-property
                 :group (plist-get prop-plist :group)
@@ -402,6 +455,11 @@ PROP-PLIST is a plist from `vcard--parse-property-line'."
       (let ((slot (vcard--property-slot-name name)))
         (when (slot-exists-p vc slot)
           (let ((current (slot-value vc slot)))
+            ;; Enforce cardinality *1 constraint
+            (when (and (vcard--is-cardinality-one-property-p name)
+                       current)
+              (signal 'vcard-validation-error
+                      (list (format "Property %s can appear at most once (cardinality *1)" name))))
             (setf (slot-value vc slot) (append current (list prop))))))))))
 
 (defun vcard--fold-line (line)
@@ -443,8 +501,11 @@ Returns formatted string."
          (value (oref prop value))
          (param-str (vcard--format-parameters parameters))
          (value-str (if (listp value)
-                        ;; Structured value - join with semicolons
-                        (mapconcat #'vcard--escape-value value ";")
+                        ;; Text-list properties (CATEGORIES, NICKNAME) use comma separator
+                        (if (member name '("CATEGORIES" "NICKNAME"))
+                            (mapconcat #'vcard--escape-value value ",")
+                          ;; Structured properties (N, ADR, ORG, GENDER) use semicolon separator
+                          (mapconcat #'vcard--escape-value value ";"))
                       (vcard--escape-value value))))
 
     (concat (if group (concat group ".") "")
@@ -464,14 +525,82 @@ Returns list of folded lines."
 
 ;;; Public API
 
+(defun vcard--validate-pref-parameters (vc)
+  "Validate PREF parameter values are integers 1-100.
+VC is the vcard object to validate.
+Signals `vcard-validation-error' if any PREF value is out of range."
+  (dolist (slot '(fn n nickname photo bday anniversary gender adr tel email
+                  impp lang geo tz title role logo org member related
+                  categories note prodid rev sound uid clientpidmap url
+                  key fburl caladruri caluri source kind xml))
+    (let ((props (slot-value vc slot)))
+      (dolist (prop props)
+        (let ((params (oref prop parameters)))
+          (when params
+            (let ((pref-param (assoc "PREF" params)))
+              (when pref-param
+                (let* ((pref-value (cdr pref-param))
+                       ;; Parse as number and check if it's a valid integer in range
+                       (pref-num (ignore-errors (string-to-number pref-value)))
+                       (pref-int (and pref-num (truncate pref-num))))
+                  (unless (and pref-int
+                               (= pref-num pref-int)  ; Ensure it's actually an integer, not a float
+                               (>= pref-int 1)
+                               (<= pref-int 100))
+                    (signal 'vcard-validation-error
+                            (list (format "PREF parameter must be integer 1-100, got: %s"
+                                          pref-value)))))))))))))
+
+(defun vcard--validate-vcard (vc)
+  "Validate required properties for vcard object VC.
+Signals `vcard-validation-error' if validation fails."
+  ;; Validate required properties
+  (unless (oref vc version)
+    (signal 'vcard-validation-error '("Missing VERSION property")))
+
+  (unless (oref vc fn)
+    (signal 'vcard-validation-error '("Missing FN (formatted name) property")))
+
+  ;; Validate VERSION is 4.0
+  (let ((version-prop (car (oref vc version))))
+    (unless (and version-prop
+                 (string= (oref version-prop value) "4.0"))
+      (signal 'vcard-validation-error
+              (list "Unsupported VERSION"
+                    (if version-prop (oref version-prop value) "nil")))))
+
+  ;; Validate KIND value if present
+  (let ((kind-props (oref vc kind)))
+    (when kind-props
+      (let* ((kind-prop (car kind-props))
+             (kind-value (downcase (oref kind-prop value))))
+        (unless (member kind-value '("individual" "group" "org" "location"))
+          (signal 'vcard-validation-error
+                  (list (format "Invalid KIND value: %s (must be individual, group, org, or location)"
+                                (oref kind-prop value))))))))
+
+  ;; Validate MEMBER/KIND relationship
+  (let ((member-props (oref vc member))
+        (kind-props (oref vc kind)))
+    (when (and member-props
+               (or (null kind-props)
+                   (not (string= (downcase (oref (car kind-props) value)) "group"))))
+      (signal 'vcard-validation-error
+              '("MEMBER property requires KIND to be 'group'"))))
+
+  ;; Validate PREF parameter ranges across all properties
+  (vcard--validate-pref-parameters vc))
+
 ;;;###autoload
-(defun vcard-parse (text)
-  "Parse vCard TEXT into a vcard object.
-TEXT should be a complete vCard 4.0 string.
+(defun vcard-parse-multiple (text)
+  "Parse vCard TEXT into a list of vcard objects.
+TEXT can contain one or more vCard 4.0 records.
+Returns a list of vcard objects, even if only one vCard is present.
 Signals `vcard-parse-error' if parsing fails.
 Signals `vcard-validation-error' if required properties are missing."
   (let* ((lines (vcard--unfold-lines text))
-         (vc (vcard))
+         (vcards nil)
+         (current-vc nil)
          (in-vcard nil))
 
     (dolist (line lines)
@@ -479,49 +608,88 @@ Signals `vcard-validation-error' if required properties are missing."
        ((string-match-p "^BEGIN:VCARD" line)
         (when in-vcard
           (signal 'vcard-parse-error '("Nested BEGIN:VCARD not allowed")))
-        (setq in-vcard t))
+        (setq in-vcard t)
+        (setq current-vc (vcard)))
 
        ((string-match-p "^END:VCARD" line)
         (unless in-vcard
           (signal 'vcard-parse-error '("END:VCARD without BEGIN:VCARD")))
-        (setq in-vcard nil))
+        (setq in-vcard nil)
+        ;; Validate and add completed vCard
+        (vcard--validate-vcard current-vc)
+        (push current-vc vcards)
+        (setq current-vc nil))
 
        (in-vcard
         (let ((prop-plist (vcard--parse-property-line line)))
-          (vcard--add-property-to-vcard vc prop-plist)))))
+          (vcard--add-property-to-vcard current-vc prop-plist)))))
 
-    (unless (and (null in-vcard))
+    (when in-vcard
       (signal 'vcard-parse-error '("Missing END:VCARD")))
 
-    ;; Validate required properties
-    (unless (oref vc version)
-      (signal 'vcard-validation-error '("Missing VERSION property")))
+    (nreverse vcards)))
 
-    (unless (oref vc fn)
-      (signal 'vcard-validation-error '("Missing FN (formatted name) property")))
+;;;###autoload
+(defun vcard-parse (text)
+  "Parse vCard TEXT into a vcard object or list of vcard objects.
+TEXT should contain one or more complete vCard 4.0 records.
 
-    ;; Validate VERSION is 4.0
-    (let ((version-prop (car (oref vc version))))
-      (unless (and version-prop
-                   (string= (oref version-prop value) "4.0"))
-        (signal 'vcard-validation-error
-                (list "Unsupported VERSION"
-                      (if version-prop (oref version-prop value) "nil")))))
+If TEXT contains a single vCard, returns a single vcard object.
+If TEXT contains multiple vCards, returns a list of vcard objects.
+If TEXT contains no vCards, signals an error.
 
-    vc))
+Signals `vcard-parse-error' if parsing fails.
+Signals `vcard-validation-error' if required properties are missing.
+
+For explicit control over return type, use `vcard-parse-multiple'
+which always returns a list."
+  (let ((vcards (vcard-parse-multiple text)))
+    (cond
+     ((= (length vcards) 0)
+      (signal 'vcard-parse-error '("No vCards found in input")))
+     ((= (length vcards) 1)
+      (car vcards))
+     (t
+      vcards))))
+
+;;;###autoload
+(defun vcard-parse-file-multiple (filename)
+  "Parse vCard from FILENAME and return list of vcard objects.
+Always returns a list, even if only one vCard is present.
+Signals `vcard-parse-error' if parsing fails."
+  (with-temp-buffer
+    (insert-file-contents filename)
+    (vcard-parse-multiple (buffer-string))))
 
 ;;;###autoload
 (defun vcard-parse-file (filename)
-  "Parse vCard from FILENAME and return vcard object.
-Signals `vcard-parse-error' if parsing fails."
+  "Parse vCard from FILENAME and return vcard object or list.
+If FILENAME contains a single vCard, returns a single vcard object.
+If FILENAME contains multiple vCards, returns a list of vcard objects.
+Signals `vcard-parse-error' if parsing fails.
+
+For explicit control over return type, use `vcard-parse-file-multiple'
+which always returns a list."
   (with-temp-buffer
     (insert-file-contents filename)
     (vcard-parse (buffer-string))))
 
 ;;;###autoload
-(defun vcard-parse-buffer ()
-  "Parse vCard from current buffer and return vcard object.
+(defun vcard-parse-buffer-multiple ()
+  "Parse vCard from current buffer and return list of vcard objects.
+Always returns a list, even if only one vCard is present.
 Signals `vcard-parse-error' if parsing fails."
+  (vcard-parse-multiple (buffer-string)))
+
+;;;###autoload
+(defun vcard-parse-buffer ()
+  "Parse vCard from current buffer and return vcard object or list.
+If buffer contains a single vCard, returns a single vcard object.
+If buffer contains multiple vCards, returns a list of vcard objects.
+Signals `vcard-parse-error' if parsing fails.
+
+For explicit control over return type, use `vcard-parse-buffer-multiple'
+which always returns a list."
   (vcard-parse (buffer-string)))
 
 ;;;###autoload
@@ -532,7 +700,7 @@ Returns a properly formatted and folded vCard string."
 
     ;; Serialize all properties in defined order
     (dolist (slot '(source kind xml fn n nickname photo bday anniversary gender
-                    adr tel email geo tz title role logo org member related
+                    adr tel email impp lang geo tz title role logo org member related
                     categories note prodid rev sound uid clientpidmap url
                     key fburl caladruri caluri))
       (let ((props (slot-value vc slot)))
@@ -550,6 +718,13 @@ Returns a properly formatted and folded vCard string."
 
     ;; Join with CRLF as per RFC 6350
     (mapconcat #'identity lines "\r\n")))
+
+;;;###autoload
+(defun vcard-serialize-multiple (vcards)
+  "Serialize list of vcard objects VCARDS to vCard 4.0 text string.
+Each vCard is separated by a newline.
+Returns a properly formatted and folded vCard string."
+  (mapconcat #'vcard-serialize vcards "\r\n"))
 
 ;;;###autoload
 (defun vcard-write-file (vc filename)
@@ -647,7 +822,6 @@ Example:
       (add-prop fn fn)
       (add-prop email email)
       (add-prop tel tel)
-      (add-prop org org)
       (add-prop title title)
       (add-prop role role)
       (add-prop url url)
@@ -672,6 +846,16 @@ Example:
     ;; Handle N (structured name) - can be a list
     (when n
       (oset vc n (list (vcard-property :name "N" :value n))))
+
+    ;; Handle ORG (structured organization) - convert string to list
+    (when org
+      (oset vc org (list (vcard-property :name "ORG"
+                                         :value (if (listp org) org (list org))))))
+
+    ;; Handle GENDER (structured) - convert string to list
+    (when gender
+      (oset vc gender (list (vcard-property :name "GENDER"
+                                            :value (if (listp gender) gender (list gender))))))
 
     ;; Handle ADR (structured address) - can be list of lists
     (when adr
