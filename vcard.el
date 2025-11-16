@@ -275,20 +275,28 @@
 (defun vcard--unfold-lines (text)
   "Unfold vCard TEXT by removing CRLF followed by space or tab.
 Returns a list of unfolded lines.
-Per RFC 6350, the CRLF is removed but the space/tab is kept."
+Per RFC 6350, the CRLF is removed but the space/tab is kept.
+
+Performance: Uses list accumulation for O(n) string building
+instead of O(n²) concatenation."
   (let ((lines (split-string text "[\r\n]+" t)))
     (cl-loop with result = nil
-             with current = ""
+             with current-parts = nil  ; Accumulate line parts in reverse
              for line in lines
              do (if (string-match-p "^[ \t]" line)
-                    ;; Continuation line - keep the space/tab as it's part of the value
-                    (setq current (concat current (substring line 1)))
-                  ;; New property line
-                  (when (not (string-empty-p current))
-                    (push current result))
-                  (setq current line))
-             finally (when (not (string-empty-p current))
-                       (push current result))
+                    ;; Continuation line - accumulate the continuation (without leading space/tab)
+                    (push (substring line 1) current-parts)
+                  ;; New property line - complete previous line if any
+                  (progn
+                    (when current-parts
+                      ;; Build completed line from accumulated parts - O(n)
+                      (push (mapconcat #'identity (nreverse current-parts) "") result)
+                      (setq current-parts nil))
+                    ;; Start new line
+                    (setq current-parts (list line))))
+             finally (when current-parts
+                       ;; Complete final line
+                       (push (mapconcat #'identity (nreverse current-parts) "") result))
              finally return (nreverse result))))
 
 (defun vcard--unescape-value (value)

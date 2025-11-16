@@ -109,29 +109,33 @@ Returns decoded string."
 (defun vcard-compat--decode-quoted-printable (encoded-value &optional charset)
   "Decode QUOTED-PRINTABLE ENCODED-VALUE with optional CHARSET.
 Returns decoded string.
-Handles soft line breaks (=\\r\\n or =\\n) and =XX hex sequences."
+Handles soft line breaks (=\\r\\n or =\\n) and =XX hex sequences.
+
+Performance: Uses list accumulation instead of O(n²) string concatenation."
   (condition-case err
-      (let ((result "")
+      (let ((chars nil)  ; Accumulate characters in reverse order - O(1) per char
             (i 0)
             (len (length encoded-value)))
         ;; First, remove soft line breaks
         (setq encoded-value (replace-regexp-in-string "=[\r\n]+" "" encoded-value))
         (setq len (length encoded-value))
 
-        ;; Decode =XX sequences
+        ;; Decode =XX sequences - accumulate chars in list
         (while (< i len)
           (let ((char (aref encoded-value i)))
             (if (and (= char ?=) (< (+ i 2) len))
                 (let ((hex (substring encoded-value (1+ i) (+ i 3))))
-                  (setq result (concat result (char-to-string (string-to-number hex 16))))
+                  (push (string-to-number hex 16) chars)
                   (setq i (+ i 3)))
-              (setq result (concat result (char-to-string char)))
+              (push char chars)
               (setq i (1+ i)))))
 
-        ;; Convert from charset if specified
-        (if charset
-            (vcard-compat--convert-charset result charset)
-          result))
+        ;; Build result string from accumulated characters - O(n)
+        (let ((result (concat (nreverse chars))))
+          ;; Convert from charset if specified
+          (if charset
+              (vcard-compat--convert-charset result charset)
+            result)))
     (error
      (signal 'vcard-compat-encoding-error
              (list "QUOTED-PRINTABLE decode failed" (error-message-string err))))))
@@ -351,7 +355,11 @@ Returns string like \"image/jpeg\" or nil."
 NAME is property name (uppercase string).
 VALUE is property value (string or list).
 PARAMS is alist of parameters.
-GROUP is optional group string."
+GROUP is optional group string.
+
+Performance: Uses O(1) cons instead of O(n) append.
+Note: Properties are stored in reverse order of appearance, but RFC 6350
+does not mandate property order, and serialization maintains data fidelity."
   (let ((slot (intern (downcase name))))
     (when (and (slot-exists-p vc slot)
                (not (eq slot 'version)))  ; Don't override VERSION
@@ -368,10 +376,10 @@ GROUP is optional group string."
           ;; For *1 properties, replace rather than append
           (setf (slot-value vc slot) (list prop)))
 
-        ;; For other properties, append
+        ;; For other properties, prepend using cons - O(1) instead of O(n)
         (unless (and (vcard--is-cardinality-one-property-p name)
                      existing)
-          (setf (slot-value vc slot) (append existing (list prop))))))))
+          (setf (slot-value vc slot) (cons prop existing)))))))
 
 (defun vcard-compat--build-vcard-40 (fn properties)
   "Build vCard 4.0 object from FN and PROPERTIES list.
@@ -537,28 +545,33 @@ Signals `vcard-compat-version-error' if version is unknown or missing."
 (defun vcard-compat-parse-multiple (text)
   "Parse TEXT containing one or more vCards of any version.
 Auto-detects each vCard's version and converts to vCard 4.0.
-Returns list of vCard 4.0 objects."
+Returns list of vCard 4.0 objects.
+
+Performance: Uses list accumulation for O(n) line building
+instead of O(n²) concatenation."
   (let ((vcards '())
-        (current-vcard "")
+        (current-lines nil)  ; Accumulate lines in reverse order - O(1) per line
         (in-vcard nil))
 
     (dolist (line (split-string text "[\r\n]+" t))
       (cond
        ((string-match-p "^BEGIN:VCARD" line)
         (setq in-vcard t)
-        (setq current-vcard (concat line "\n")))
+        (setq current-lines (list line)))  ; Start new vCard
 
        ((string-match-p "^END:VCARD" line)
-        (setq current-vcard (concat current-vcard line "\n"))
-        (condition-case err
-            (push (vcard-compat-parse current-vcard) vcards)
-          (error
-           (message "Failed to parse vCard: %s" (error-message-string err))))
+        (push line current-lines)
+        ;; Build vCard text from accumulated lines - O(n)
+        (let ((current-vcard (mapconcat #'identity (nreverse current-lines) "\n")))
+          (condition-case err
+              (push (vcard-compat-parse current-vcard) vcards)
+            (error
+             (message "Failed to parse vCard: %s" (error-message-string err)))))
         (setq in-vcard nil)
-        (setq current-vcard ""))
+        (setq current-lines nil))
 
        (in-vcard
-        (setq current-vcard (concat current-vcard line "\n")))))
+        (push line current-lines))))  ; Accumulate line - O(1)
 
     (nreverse vcards)))
 
