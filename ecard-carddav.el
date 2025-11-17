@@ -590,6 +590,7 @@ ADDRESSBOOK is the parent addressbook object.
 BASE-URL is used to resolve relative URLs.
 Returns list of `ecard-carddav-resource' objects."
   (let ((responses (ecard-carddav--dom-by-tag-qname xml 'response ecard-carddav-ns-dav))
+        (addressbook-url (oref addressbook url))
         (resources nil))
     (dolist (response responses)
       (let* ((href-node (ecard-carddav--dom-by-tag-qname response 'href ecard-carddav-ns-dav))
@@ -600,21 +601,24 @@ Returns list of `ecard-carddav-resource' objects."
              (content-type-node (when prop (ecard-carddav--dom-by-tag-qname (car prop) 'getcontenttype
                                                                               ecard-carddav-ns-dav)))
              (content-type (when content-type-node (dom-text (car content-type-node)))))
-        ;; Only include vCard resources, not the addressbook itself
+        ;; Only include vCard resources, not the addressbook collection itself
         (when (and href content-type (string-match-p "text/vcard" content-type))
           (let* ((url (ecard-carddav--resolve-url href base-url))
-                 (etag-node (when prop (ecard-carddav--dom-by-tag-qname (car prop) 'getetag
-                                                                          ecard-carddav-ns-dav)))
-                 (etag (when etag-node (dom-text (car etag-node))))
-                 ;; Remove quotes from ETag if present
-                 (etag (when etag (string-trim etag "\"" "\"")))
-                 (path (url-filename (url-generic-parse-url url))))
-            (push (ecard-carddav-resource
-                   :addressbook addressbook
-                   :url url
-                   :path path
-                   :etag etag)
-                  resources)))))
+                 ;; Skip if this is the addressbook collection itself
+                 (is-collection (string= url addressbook-url)))
+            (unless is-collection
+              (let* ((etag-node (when prop (ecard-carddav--dom-by-tag-qname (car prop) 'getetag
+                                                                              ecard-carddav-ns-dav)))
+                     (etag (when etag-node (dom-text (car etag-node))))
+                     ;; Remove quotes from ETag if present
+                     (etag (when etag (string-trim etag "\"" "\"")))
+                     (path (url-filename (url-generic-parse-url url))))
+                (push (ecard-carddav-resource
+                       :addressbook addressbook
+                       :url url
+                       :path path
+                       :etag etag)
+                      resources)))))))
     (nreverse resources)))
 
 (defun ecard-carddav-get-resource (addressbook path-or-url)
