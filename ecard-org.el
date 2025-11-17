@@ -104,7 +104,8 @@
     ("BDAY" bday nil)
     ("NICKNAME" nickname nil)
     ("ANNIVERSARY" anniversary nil)
-    ("CATEGORIES" categories nil))
+    ("CATEGORIES" categories nil)
+    ("LOCATION" geo nil))
   "Mapping between Org properties and vCard properties.
 
 Each entry is a list: (ORG-PROPERTY VCARD-SLOT PARAMETERS)

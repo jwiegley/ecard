@@ -33,13 +33,13 @@
 ;; - Round-trip conversion fidelity
 ;;
 ;; Test Statistics:
-;; - 72 total tests
+;; - 86 total tests
 ;; - 100% passing
-;; - ~1.7s execution time (batch mode)
+;; - ~1.8s execution time (batch mode)
 ;;
 ;; Coverage:
 ;; - All public API functions tested
-;; - All property mappings tested (EMAIL, TEL, ORG, etc.)
+;; - All property mappings tested (EMAIL, TEL, ORG, LOCATION/GEO, etc.)
 ;; - All customization options tested
 ;; - Bidirectional conversion tested
 ;; - Edge cases and error conditions tested
@@ -1004,6 +1004,137 @@ Some content here.
       ;; Whitespace should be trimmed
       (should (equal '("Nick1" "Nick2" "Nick3")
                      (ecard-get-property-value vc 'nickname))))))
+
+;;; 9. LOCATION/GEO Property Tests
+
+(ert-deftest ecard-org-test-location-to-geo-with-vcard-marker ()
+  "Test LOCATION property converts to GEO with explicit VCARD marker.
+This test case is based on a real-world user issue where entries
+with PHONE and LOCATION properties were not being recognized as contacts."
+  (ecard-org-test-with-temp-org-buffer
+      "* Jonathan Johnson
+:PROPERTIES:
+:VCARD: t
+:ID:       AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE
+:CREATED:  [2025-10-05 Sun 13:54]
+:LOCATION: 12.345678,-98.765432
+:PHONE:    555-123-4567
+:END:
+"
+    (let ((vc (ecard-org-entry-to-ecard)))
+      (should vc)
+      (should (string= "Jonathan Johnson" (ecard-get-property-value vc 'fn)))
+      (should (string= "555-123-4567" (ecard-get-property-value vc 'tel)))
+      (should (string= "12.345678,-98.765432" (ecard-get-property-value vc 'geo))))))
+
+(ert-deftest ecard-org-test-location-to-geo-auto-detect ()
+  "Test LOCATION property converts to GEO with auto-detection enabled.
+Verifies that entries with contact-like properties (PHONE, LOCATION)
+are recognized even without explicit VCARD marker when auto-detection
+is enabled."
+  (let ((ecard-org-require-ecard-property nil))
+    (ecard-org-test-with-temp-org-buffer
+        "* Jonathan Johnson
+:PROPERTIES:
+:ID:       AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE
+:CREATED:  [2025-10-05 Sun 13:54]
+:LOCATION: 12.345678,-98.765432
+:PHONE:    555-123-4567
+:END:
+"
+      (let ((vc (ecard-org-entry-to-ecard)))
+        (should vc)
+        (should (string= "Jonathan Johnson" (ecard-get-property-value vc 'fn)))
+        (should (string= "555-123-4567" (ecard-get-property-value vc 'tel)))
+        (should (string= "12.345678,-98.765432" (ecard-get-property-value vc 'geo)))))))
+
+(ert-deftest ecard-org-test-location-to-geo-requires-vcard-marker ()
+  "Test that LOCATION property is NOT converted without VCARD marker by default.
+When ecard-org-require-ecard-property is t (default), entries without
+:VCARD: t marker are not recognized as contacts, even if they have
+contact-like properties."
+  (let ((ecard-org-require-ecard-property t))
+    (ecard-org-test-with-temp-org-buffer
+        "* Jonathan Johnson
+:PROPERTIES:
+:ID:       AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE
+:CREATED:  [2025-10-05 Sun 13:54]
+:LOCATION: 12.345678,-98.765432
+:PHONE:    555-123-4567
+:END:
+"
+      (let ((vc (ecard-org-entry-to-ecard)))
+        ;; Should return nil because no VCARD marker and auto-detect disabled
+        (should-not vc)))))
+
+(ert-deftest ecard-org-test-geo-to-location-reverse-mapping ()
+  "Test reverse mapping from vCard GEO to Org LOCATION property."
+  (let ((vc (ecard-create :fn "Location Test")))
+    (ecard-set-property vc 'geo "geo:37.386013,-122.082932")
+    (let ((org-entry (ecard-org-ecard-to-entry vc 1)))
+      (should (string-match-p ":LOCATION: geo:37.386013,-122.082932" org-entry)))))
+
+(ert-deftest ecard-org-test-location-round-trip ()
+  "Test LOCATION property survives round-trip conversion."
+  (ecard-org-test-with-temp-org-buffer
+      "* Test Contact
+:PROPERTIES:
+:VCARD: t
+:EMAIL: test@example.com
+:LOCATION: 40.7128,-74.0060
+:END:
+"
+    (let* ((vc1 (ecard-org-entry-to-ecard))
+           (org-entry (ecard-org-ecard-to-entry vc1 1)))
+      (erase-buffer)
+      (insert org-entry)
+      (goto-char (point-min))
+      (let ((vc2 (ecard-org-entry-to-ecard)))
+        (should vc2)
+        (should (string= (ecard-get-property-value vc1 'geo)
+                        (ecard-get-property-value vc2 'geo)))))))
+
+(ert-deftest ecard-org-test-location-with-uri-format ()
+  "Test LOCATION property with geo: URI format."
+  (ecard-org-test-with-temp-org-buffer
+      "* Test\n:PROPERTIES:\n:VCARD: t\n:LOCATION: geo:48.198634,16.371648\n:END:\n"
+    (let ((vc (ecard-org-entry-to-ecard)))
+      (should vc)
+      (should (string= "geo:48.198634,16.371648"
+                      (ecard-get-property-value vc 'geo))))))
+
+(ert-deftest ecard-org-test-multiple-contacts-with-location ()
+  "Test batch export of multiple contacts with LOCATION properties."
+  (let ((ecard-org-require-ecard-property nil))
+    (ecard-org-test-with-temp-org-buffer
+        "* Contact One
+:PROPERTIES:
+:PHONE: 555-0001
+:LOCATION: 10.0,20.0
+:END:
+
+* Contact Two
+:PROPERTIES:
+:EMAIL: two@example.com
+:LOCATION: 30.0,40.0
+:END:
+
+* Contact Three
+:PROPERTIES:
+:PHONE: 555-0003
+:LOCATION: 50.0,60.0
+:END:
+"
+      (let ((vcards (ecard-org-buffer-to-vcards)))
+        (should (= (length vcards) 3))
+        ;; Verify all have GEO properties
+        (should (ecard-get-property-value (nth 0 vcards) 'geo))
+        (should (ecard-get-property-value (nth 1 vcards) 'geo))
+        (should (ecard-get-property-value (nth 2 vcards) 'geo))
+        ;; Verify specific values
+        (should (string= "10.0,20.0" (ecard-get-property-value (nth 0 vcards) 'geo)))
+        (should (string= "30.0,40.0" (ecard-get-property-value (nth 1 vcards) 'geo)))
+        (should (string= "50.0,60.0" (ecard-get-property-value (nth 2 vcards) 'geo)))))))
 
 ;;; Legacy vCard format tests
 
