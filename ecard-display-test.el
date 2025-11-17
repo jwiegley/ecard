@@ -566,6 +566,10 @@ Returns plist with :mock-server :real-server :addressbooks :resources."
                                  :password "test"))))
             (ecard-carddav-discover-addressbooks server)
 
+            ;; Load resources for the addressbook (required after populate no longer auto-loads)
+            (let ((addressbook (car (oref server addressbooks))))
+              (ecard-carddav-list-resources addressbook))
+
             ;; Populate addressbooks buffer
             (with-temp-buffer
               (ecard-display-addressbooks-mode)
@@ -812,7 +816,8 @@ at once works correctly."
                                    :username "testuser"
                                    :password "testpass")))
           (setq ecard-display-servers (list plist-config))
-          (ecard-display-servers)
+          ;; FIX: ecard-display-servers is not a function, use ecard-display instead
+          (ecard-display)
           (should (get-buffer "*CardDAV Servers*"))
           (with-current-buffer "*CardDAV Servers*"
             (should (eq major-mode 'ecard-display-servers-mode))
@@ -948,7 +953,9 @@ at once works correctly."
     (ecard-display-test--cleanup-mock-environment)))
 
 (ert-deftest ecard-display-test-pagination-shows-real-names ()
-  "Verify paginated contacts show real names for current page, UUIDs for others."
+  "Verify paginated contacts show real names for current page only.
+After the populate change, only the current page resources are displayed,
+not all resources with some having placeholder names."
   (let ((mock (ecard-carddav-mock-server-create
                :base-url "https://test.example.com")))
     ;; Add addressbook with 5 contacts with UUID filenames
@@ -984,10 +991,11 @@ at once works correctly."
                       ecard-display-contacts-page-size 2)  ; Page size of 2
                 (ecard-display-contacts--populate addressbook nil t)
 
-                ;; Should have 5 total entries
-                (should (equal (length tabulated-list-entries) 5))
+                ;; NEW BEHAVIOR: Should have only 2 entries (current page size)
+                ;; not all 5 resources - this is the performance improvement
+                (should (equal (length tabulated-list-entries) 2))
 
-                ;; First 2 entries (page 1) should show real names
+                ;; Both entries on current page should show real names
                 (let ((entry0 (nth 0 tabulated-list-entries))
                       (entry1 (nth 1 tabulated-list-entries)))
                   (should (equal (aref (cadr entry0) 0) "Person 0"))
@@ -998,11 +1006,9 @@ at once works correctly."
                   (should (equal (aref (cadr entry1) 1) "person1@example.com"))
                   (should (equal (aref (cadr entry1) 2) "+1-555-0101")))
 
-                ;; Entries 2-4 (not on current page) should show UUID-based names
-                (let ((entry2 (nth 2 tabulated-list-entries)))
-                  (should (string-match-p "uuid-2" (aref (cadr entry2) 0)))
-                  (should (equal (aref (cadr entry2) 1) ""))  ; No email
-                  (should (equal (aref (cadr entry2) 2) "")))))))  ; No phone
+                ;; Verify total count is tracked for pagination info
+                (should (equal ecard-display--total-contacts 5))
+                (should (equal ecard-display--current-page 0))))))
 
       (ecard-carddav-mock-uninstall))))
 
