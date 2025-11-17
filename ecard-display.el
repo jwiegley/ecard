@@ -431,14 +431,18 @@ current page in a single HTTP request."
               (let* ((paths (mapcar (lambda (r) (oref r path)) page-resources))
                      (fetched-resources (ecard-carddav-multiget-resources addressbook paths)))
                 ;; Update resources in the ORIGINAL all-resources list with fetched ecard data
-                (dolist (fetched fetched-resources)
-                  (let ((original (cl-find (oref fetched path) all-resources
-                                          :key (lambda (r) (oref r path))
-                                          :test #'string=)))
-                    (when original
-                      (oset original ecard (oref fetched ecard))
-                      (oset original ecard-data (oref fetched ecard-data))
-                      (oset original etag (oref fetched etag)))))
+                ;; Use hash table for O(1) lookups instead of O(n) cl-find
+                (let ((path-to-resource (make-hash-table :test 'equal :size (length all-resources))))
+                  ;; Build hash table: path -> resource
+                  (dolist (resource all-resources)
+                    (puthash (oref resource path) resource path-to-resource))
+                  ;; Update resources using hash table lookup
+                  (dolist (fetched fetched-resources)
+                    (let ((original (gethash (oref fetched path) path-to-resource)))
+                      (when original
+                        (oset original ecard (oref fetched ecard))
+                        (oset original ecard-data (oref fetched ecard-data))
+                        (oset original etag (oref fetched etag))))))
                 (message "Fetched names in %.2f seconds" (- (float-time) start-time)))
             (error
              (message "Failed to fetch names for %s: %s"
