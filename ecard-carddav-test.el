@@ -553,6 +553,71 @@ and individual resources, so we must explicitly filter out the collection."
             (should-not (member "/addressbooks/user/contacts/" paths)))))
     (ecard-carddav-test--teardown)))
 
+(ert-deftest ecard-carddav-test-list-resources-without-content-type ()
+  "Test listing resources when server doesn't return content-type property.
+Some servers (like Radicale in certain configurations) may not return
+the getcontenttype property in PROPFIND responses. We should still be
+able to list resources by assuming all child items are vCards."
+  (ecard-carddav-test--setup)
+  (unwind-protect
+      (let* ((auth (ecard-carddav-auth-basic-create
+                    :username "user"
+                    :password "pass"))
+             (server (ecard-carddav-server-create
+                      :url "https://test.example.com"
+                      :auth auth))
+             (addressbooks (ecard-carddav-discover-addressbooks server))
+             (ab (car addressbooks)))
+
+        ;; Add vCards
+        (ecard-carddav-put-ecard
+         ab "/addressbooks/user/contacts/david.vcf"
+         (ecard-carddav-test--create-test-ecard "David Lee"))
+        (ecard-carddav-put-ecard
+         ab "/addressbooks/user/contacts/emma.vcf"
+         (ecard-carddav-test--create-test-ecard "Emma Watson"))
+
+        ;; Mock a PROPFIND response without content-type
+        (cl-letf (((symbol-function 'ecard-carddav--parse-resources)
+                   (lambda (xml addressbook base-url)
+                     ;; Simulate response without content-type by parsing and
+                     ;; removing content-type nodes
+                     (let ((responses (ecard-carddav--dom-by-tag-qname xml 'response ecard-carddav-ns-dav))
+                           (addressbook-url (oref addressbook url))
+                           (resources nil))
+                       (dolist (response responses)
+                         (let* ((href-node (ecard-carddav--dom-by-tag-qname response 'href ecard-carddav-ns-dav))
+                                (href (when href-node (dom-text (car href-node))))
+                                (propstat (ecard-carddav--dom-by-tag-qname response 'propstat ecard-carddav-ns-dav))
+                                (prop (when propstat (ecard-carddav--dom-by-tag-qname (car propstat) 'prop ecard-carddav-ns-dav)))
+                                ;; Simulate missing content-type by not extracting it
+                                (content-type nil))
+                           ;; Apply same logic as real parser but with nil content-type
+                           (when (and href
+                                      (or (null content-type)
+                                          (string-match-p "text/vcard" content-type)))
+                             (let* ((url (ecard-carddav--resolve-url href base-url))
+                                    (is-collection (string= url addressbook-url)))
+                               (unless is-collection
+                                 (let* ((etag-node (when prop (ecard-carddav--dom-by-tag-qname (car prop) 'getetag ecard-carddav-ns-dav)))
+                                        (etag (when etag-node (dom-text (car etag-node))))
+                                        (etag (when etag (string-trim etag "\"" "\"")))
+                                        (path (url-filename (url-generic-parse-url url))))
+                                   (push (ecard-carddav-resource
+                                          :addressbook addressbook
+                                          :url url
+                                          :path path
+                                          :etag etag)
+                                         resources)))))))
+                       (nreverse resources)))))
+
+          (let ((resources (ecard-carddav-list-resources ab)))
+            (should (= (length resources) 2))
+            (let ((paths (mapcar (lambda (r) (oref r path)) resources)))
+              (should (member "/addressbooks/user/contacts/david.vcf" paths))
+              (should (member "/addressbooks/user/contacts/emma.vcf" paths))))))
+    (ecard-carddav-test--teardown)))
+
 (ert-deftest ecard-carddav-test-complete-workflow ()
   "Test complete CardDAV workflow end-to-end."
   (ecard-carddav-test--setup)

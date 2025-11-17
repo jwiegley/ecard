@@ -629,8 +629,10 @@ Signals `ecard-validation-error' if required properties are missing."
         (setq current-vc nil))
 
        (in-ecard
-        (let ((prop-plist (ecard--parse-property-line line)))
-          (ecard--add-property-to-ecard current-vc prop-plist)))))
+        ;; Skip empty or whitespace-only lines
+        (unless (string-match-p "^[ \t]*$" line)
+          (let ((prop-plist (ecard--parse-property-line line)))
+            (ecard--add-property-to-ecard current-vc prop-plist))))))
 
     (when in-ecard
       (signal 'ecard-parse-error '("Missing END:VCARD")))

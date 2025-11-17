@@ -602,7 +602,10 @@ Returns list of `ecard-carddav-resource' objects."
                                                                               ecard-carddav-ns-dav)))
              (content-type (when content-type-node (dom-text (car content-type-node)))))
         ;; Only include vCard resources, not the addressbook collection itself
-        (when (and href content-type (string-match-p "text/vcard" content-type))
+        ;; Content-type check is optional since some servers don't return it
+        (when (and href
+                   (or (null content-type)  ; No content-type returned
+                       (string-match-p "text/vcard" content-type)))  ; Or it's a vcard
           (let* ((url (ecard-carddav--resolve-url href base-url))
                  ;; Skip if this is the addressbook collection itself
                  (is-collection (string= url addressbook-url)))
@@ -727,6 +730,119 @@ Signals conflict error if ETAG doesn't match."
             (signal 'ecard-carddav-http-error
                     (list "Failed to delete resource" status url)))))
       (kill-buffer buffer))))
+
+;;; addressbook-multiget REPORT
+
+(defun ecard-carddav-multiget-resources (addressbook resource-paths)
+  "Fetch multiple vCard resources in a single request using addressbook-multiget.
+ADDRESSBOOK is the addressbook object.
+RESOURCE-PATHS is a list of resource paths to fetch.
+Returns list of `ecard-carddav-resource' objects with ecard data populated.
+
+This uses the CardDAV addressbook-multiget REPORT (RFC 6352) to batch-fetch
+multiple vCards in a single HTTP request, which is much more efficient than
+individual GET requests."
+  (when (null resource-paths)
+    (signal 'ecard-carddav-error '("No resource paths provided")))
+
+  (let* ((server (oref addressbook server))
+         (auth (oref server auth))
+         (url (oref addressbook url))
+         (body (ecard-carddav--multiget-body resource-paths))
+         (buffer (ecard-carddav--request-with-retry
+                  "REPORT" url auth body
+                  "application/xml; charset=utf-8"
+                  '(("Depth" . "1")))))
+    (unwind-protect
+        (let* ((status (ecard-carddav--get-http-status buffer))
+               (xml (when (and status (= status 207))
+                      (ecard-carddav--parse-xml-response buffer))))
+          (when xml
+            (ecard-carddav--parse-multiget-response xml addressbook)))
+      (kill-buffer buffer))))
+
+(defun ecard-carddav--multiget-body (resource-paths)
+  "Create addressbook-multiget REPORT request body for RESOURCE-PATHS."
+  (with-temp-buffer
+    (insert "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
+    (insert (format "<C:addressbook-multiget xmlns=\"%s\" xmlns:C=\"%s\">\n"
+                   ecard-carddav-ns-dav
+                   ecard-carddav-ns-carddav))
+    (insert "  <prop>\n")
+    (insert "    <getetag/>\n")
+    (insert "    <C:address-data/>\n")
+    (insert "  </prop>\n")
+    (dolist (path resource-paths)
+      (insert (format "  <href>%s</href>\n" (ecard-carddav--xml-escape-string path))))
+    (insert "</C:addressbook-multiget>\n")
+    (buffer-string)))
+
+(defun ecard-carddav--xml-escape-string (str)
+  "Escape STR for use in XML content."
+  (replace-regexp-in-string
+   "[<>&\"]"
+   (lambda (match)
+     (pcase match
+       ("<" "&lt;")
+       (">" "&gt;")
+       ("&" "&amp;")
+       ("\"" "&quot;")))
+   str))
+
+(defun ecard-carddav--parse-multiget-response (xml addressbook)
+  "Parse addressbook-multiget REPORT response XML.
+ADDRESSBOOK is the parent addressbook object.
+Returns list of `ecard-carddav-resource' objects with ecard data populated."
+  (let ((responses (ecard-carddav--dom-by-tag-qname xml 'response ecard-carddav-ns-dav))
+        (resources nil))
+    (dolist (response responses)
+      (let* ((href-node (ecard-carddav--dom-by-tag-qname response 'href ecard-carddav-ns-dav))
+             (href (when href-node (dom-text (car href-node))))
+             (propstat (ecard-carddav--dom-by-tag-qname response 'propstat ecard-carddav-ns-dav))
+             (status-node (when propstat
+                           (ecard-carddav--dom-by-tag-qname (car propstat) 'status
+                                                              ecard-carddav-ns-dav)))
+             (status-text (when status-node (dom-text (car status-node))))
+             (is-success (and status-text (string-match-p "200" status-text))))
+
+        (when (and href is-success)
+          (let* ((prop (when propstat
+                        (ecard-carddav--dom-by-tag-qname (car propstat) 'prop
+                                                          ecard-carddav-ns-dav)))
+                 (etag-node (when prop
+                             (ecard-carddav--dom-by-tag-qname (car prop) 'getetag
+                                                               ecard-carddav-ns-dav)))
+                 (etag (when etag-node (dom-text (car etag-node))))
+                 (address-data-node (when prop
+                                     (ecard-carddav--dom-by-tag-qname (car prop) 'address-data
+                                                                       ecard-carddav-ns-carddav)))
+                 (ecard-data (when address-data-node (dom-text (car address-data-node)))))
+
+            (when ecard-data
+              ;; Remove quotes from ETag if present
+              (when etag
+                (setq etag (string-trim etag "\"" "\"")))
+
+              ;; Parse vCard data
+              (condition-case err
+                  (let* ((ecard-obj (ecard-compat-parse ecard-data))
+                         (path (if (string-prefix-p "http" href)
+                                  (url-filename (url-generic-parse-url href))
+                                href))
+                         (url (if (string-prefix-p "http" href)
+                                 href
+                               (ecard-carddav--resolve-url href (oref addressbook url)))))
+                    (push (ecard-carddav-resource
+                           :addressbook addressbook
+                           :url url
+                           :path path
+                           :etag etag
+                           :ecard ecard-obj
+                           :ecard-data ecard-data)
+                          resources))
+                (error
+                 (message "Failed to parse vCard at %s: %s" href (error-message-string err)))))))))
+    (nreverse resources)))
 
 ;;; Server creation
 
