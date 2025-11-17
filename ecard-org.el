@@ -1,13 +1,13 @@
-;;; vcard-org.el --- Bidirectional conversion between Org-mode and vCard -*- lexical-binding: t; -*-
+;;; ecard-org.el --- Bidirectional conversion between Org-mode and vCard -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2025 Free Software Foundation, Inc.
 
 ;; Author: Claude Code
-;; Keywords: contact, vcard, org
+;; Keywords: contact, ecard, org
 ;; Version: 1.0.0
 ;; Package-Requires: ((emacs "27.1") (org "9.0"))
 
-;; This file is part of emacs-vcard.
+;; This file is part of emacs-ecard.
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -39,17 +39,17 @@
 ;; Usage:
 ;;
 ;; Export contacts from Org to vCard:
-;;   M-x vcard-org-export-buffer  ; Export all contacts
-;;   M-x vcard-org-export-region  ; Export region
-;;   M-x vcard-org-export-subtree ; Export subtree
+;;   M-x ecard-org-export-buffer  ; Export all contacts
+;;   M-x ecard-org-export-region  ; Export region
+;;   M-x ecard-org-export-subtree ; Export subtree
 ;;
 ;; Import vCards to Org:
-;;   M-x vcard-org-import-file    ; Import from .vcf file
+;;   M-x ecard-org-import-file    ; Import from .vcf file
 ;;
 ;; Programmatic usage:
-;;   (vcard-org-entry-to-vcard)         ; Convert current entry
-;;   (vcard-org-buffer-to-vcards)       ; Get all contacts as vcards
-;;   (vcard-org-vcard-to-entry vc)      ; Convert vcard to Org string
+;;   (ecard-org-entry-to-ecard)         ; Convert current entry
+;;   (ecard-org-buffer-to-vcards)       ; Get all contacts as vcards
+;;   (ecard-org-ecard-to-entry vc)      ; Convert ecard to Org string
 ;;
 ;; Org Entry Format (org-contacts compatible):
 ;;
@@ -71,20 +71,20 @@
 ;;; Code:
 
 (require 'org)
-(require 'vcard)
-(require 'vcard-compat)
+(require 'ecard)
+(require 'ecard-compat)
 (require 'cl-lib)
 (require 'seq)
 
 ;;; Customization
 
-(defgroup vcard-org nil
+(defgroup ecard-org nil
   "Integration between vCard and Org-mode."
   :group 'org
-  :group 'vcard
-  :prefix "vcard-org-")
+  :group 'ecard
+  :prefix "ecard-org-")
 
-(defcustom vcard-org-property-mappings
+(defcustom ecard-org-property-mappings
   '(("EMAIL" email nil)
     ("EMAIL_HOME" email (("TYPE" . "home")))
     ("EMAIL_WORK" email (("TYPE" . "work")))
@@ -122,56 +122,56 @@ for the same vCard slot with different parameters."
                                (alist :tag "Parameters"
                                       :key-type string
                                       :value-type string))))
-  :group 'vcard-org)
+  :group 'ecard-org)
 
-(defcustom vcard-org-auto-mark-contacts t
+(defcustom ecard-org-auto-mark-contacts t
   "Automatically add VCARD property when importing contacts.
 When non-nil, imported contacts get :VCARD: t property to mark
 them as contacts for easy identification."
   :type 'boolean
-  :group 'vcard-org)
+  :group 'ecard-org)
 
-(defcustom vcard-org-export-unknown-properties nil
+(defcustom ecard-org-export-unknown-properties nil
   "Export Org properties without vCard mappings as X-* properties.
 When non-nil, unmapped Org properties become X-ORG-PROPERTY in
 the exported vCard."
   :type 'boolean
-  :group 'vcard-org)
+  :group 'ecard-org)
 
-(defcustom vcard-org-import-unmapped-properties t
+(defcustom ecard-org-import-unmapped-properties t
   "Import vCard properties without Org mappings.
 When non-nil, unmapped vCard properties are stored as uppercase
 Org properties."
   :type 'boolean
-  :group 'vcard-org)
+  :group 'ecard-org)
 
-(defcustom vcard-org-require-vcard-property t
+(defcustom ecard-org-require-ecard-property t
   "Require VCARD property to identify contacts.
 When non-nil, only entries with :VCARD: t are considered contacts.
 When nil, entries with contact-like properties are auto-detected."
   :type 'boolean
-  :group 'vcard-org)
+  :group 'ecard-org)
 
 ;;; Internal Helper Functions
 
-(defun vcard-org--is-contact-p ()
+(defun ecard-org--is-contact-p ()
   "Return t if current Org entry is a contact.
 Checks for explicit VCARD property or uses auto-detection based
-on `vcard-org-require-vcard-property'."
-  (if vcard-org-require-vcard-property
+on `ecard-org-require-ecard-property'."
+  (if ecard-org-require-ecard-property
       (org-entry-get nil "VCARD")
     (or (org-entry-get nil "VCARD")
-        (vcard-org--looks-like-contact-p))))
+        (ecard-org--looks-like-contact-p))))
 
-(defun vcard-org--looks-like-contact-p ()
+(defun ecard-org--looks-like-contact-p ()
   "Return t if entry has contact-like properties.
-Used for auto-detection when `vcard-org-require-vcard-property' is nil."
+Used for auto-detection when `ecard-org-require-ecard-property' is nil."
   (let ((properties (org-entry-properties)))
     (seq-some (lambda (mapping)
                 (assoc (car mapping) properties))
-              vcard-org-property-mappings)))
+              ecard-org-property-mappings)))
 
-(defun vcard-org--params-match-p (params target-params)
+(defun ecard-org--params-match-p (params target-params)
   "Return t if PARAMS match TARGET-PARAMS.
 Both are alists of parameter name to value.
 TARGET-PARAMS may be nil to match any parameters."
@@ -186,65 +186,65 @@ TARGET-PARAMS may be nil to match any parameters."
                                   (downcase target-value))))))
               target-params)))
 
-(defun vcard-org--find-org-prop-for-vcard-prop (vcard-slot params)
+(defun ecard-org--find-org-prop-for-ecard-prop (ecard-slot params)
   "Find Org property name for VCARD-SLOT with PARAMS.
 Returns the first matching Org property name from mappings."
-  (cl-loop for (org-prop slot target-params) in vcard-org-property-mappings
-           when (and (eq slot vcard-slot)
-                     (vcard-org--params-match-p params target-params))
+  (cl-loop for (org-prop slot target-params) in ecard-org-property-mappings
+           when (and (eq slot ecard-slot)
+                     (ecard-org--params-match-p params target-params))
            return org-prop))
 
-(defun vcard-org--format-vcard-value (value vcard-slot)
+(defun ecard-org--format-ecard-value (value ecard-slot)
   "Format VALUE for vCard property VCARD-SLOT.
 Handles structured properties (lists) and text-list properties."
   (cond
    ;; List values - structured properties use semicolon
    ((and (listp value)
-         (member vcard-slot '(org adr n)))
+         (member ecard-slot '(org adr n)))
     (mapconcat #'identity value ";"))
    ;; List values - text-list properties use comma
    ((and (listp value)
-         (member vcard-slot '(categories nickname)))
+         (member ecard-slot '(categories nickname)))
     (mapconcat #'identity value ","))
    ;; Simple string values
    (t (if (stringp value) value (format "%s" value)))))
 
-(defun vcard-org--parse-org-value (value vcard-slot)
+(defun ecard-org--parse-org-value (value ecard-slot)
   "Parse Org property VALUE for VCARD-SLOT.
 Converts strings to appropriate format (list for structured properties)."
   (cond
    ;; Structured properties (semicolon-separated)
-   ((member vcard-slot '(org adr n))
+   ((member ecard-slot '(org adr n))
     (split-string value ";" t))
    ;; Text-list properties (comma-separated)
-   ((member vcard-slot '(categories nickname))
+   ((member ecard-slot '(categories nickname))
     (split-string value "," t "[ \t]+"))
    ;; Simple string
    (t value)))
 
-(defun vcard-org--get-reverse-mappings ()
+(defun ecard-org--get-reverse-mappings ()
   "Return alist mapping vCard slots to lists of (org-prop params) pairs.
 Used for efficient vCard to Org conversion."
   (let ((result '()))
-    (dolist (mapping vcard-org-property-mappings)
+    (dolist (mapping ecard-org-property-mappings)
       (let* ((org-prop (nth 0 mapping))
-             (vcard-slot (nth 1 mapping))
+             (ecard-slot (nth 1 mapping))
              (params (nth 2 mapping))
-             (existing (assq vcard-slot result)))
+             (existing (assq ecard-slot result)))
         (if existing
             (push (cons org-prop params) (cdr existing))
-          (push (cons vcard-slot (list (cons org-prop params))) result))))
+          (push (cons ecard-slot (list (cons org-prop params))) result))))
     result))
 
 ;;; Org to vCard Conversion
 
-(defun vcard-org-entry-to-vcard ()
-  "Convert current Org entry at point to vcard object.
+(defun ecard-org-entry-to-ecard ()
+  "Convert current Org entry at point to ecard object.
 Returns nil if entry is not a contact (no VCARD property or
 contact-like properties).
 
 The entry heading becomes the FN (formatted name) property.
-Properties are mapped according to `vcard-org-property-mappings'.
+Properties are mapped according to `ecard-org-property-mappings'.
 
 Example:
   * John Doe
@@ -255,107 +255,107 @@ Example:
   :ORG: Example Corp;Engineering
   :END:
 
-Returns a vcard object with FN, EMAIL, TEL, and ORG properties."
+Returns a ecard object with FN, EMAIL, TEL, and ORG properties."
   (save-excursion
     (org-back-to-heading t)
-    (when (vcard-org--is-contact-p)
+    (when (ecard-org--is-contact-p)
       (let* ((properties (org-entry-properties))
              (heading (org-get-heading t t t t))
-             (vc (vcard-create :fn heading)))
+             (vc (ecard-create :fn heading)))
 
         ;; Handle N (structured name) if present
         (when-let ((n-value (cdr (assoc "N" properties))))
-          (vcard-set-property vc 'n (split-string n-value ";" t)))
+          (ecard-set-property vc 'n (split-string n-value ";" t)))
 
         ;; Map all properties according to mappings
-        (dolist (mapping vcard-org-property-mappings)
+        (dolist (mapping ecard-org-property-mappings)
           (let* ((org-prop (nth 0 mapping))
-                 (vcard-slot (nth 1 mapping))
+                 (ecard-slot (nth 1 mapping))
                  (params (nth 2 mapping))
                  (org-value (cdr (assoc org-prop properties))))
             (when org-value
-              (let ((parsed-value (vcard-org--parse-org-value org-value vcard-slot)))
-                (vcard-add-property vc vcard-slot parsed-value params)))))
+              (let ((parsed-value (ecard-org--parse-org-value org-value ecard-slot)))
+                (ecard-add-property vc ecard-slot parsed-value params)))))
 
         ;; Optionally export unknown properties as X-ORG-*
-        (when vcard-org-export-unknown-properties
-          (let ((mapped-props (mapcar #'car vcard-org-property-mappings)))
+        (when ecard-org-export-unknown-properties
+          (let ((mapped-props (mapcar #'car ecard-org-property-mappings)))
             (dolist (prop properties)
               (let ((prop-name (car prop))
                     (prop-value (cdr prop)))
                 (unless (or (member prop-name mapped-props)
                            (member prop-name '("CATEGORY" "ITEM" "VCARD" "N")))
-                  (vcard-add-property vc
+                  (ecard-add-property vc
                                      (intern (concat "x-org-" (downcase prop-name)))
                                      prop-value
                                      nil))))))
 
         vc))))
 
-(defun vcard-org-buffer-to-vcards ()
-  "Export all contacts in current buffer to list of vcard objects.
-Only processes entries marked as contacts (see `vcard-org--is-contact-p').
+(defun ecard-org-buffer-to-vcards ()
+  "Export all contacts in current buffer to list of ecard objects.
+Only processes entries marked as contacts (see `ecard-org--is-contact-p').
 
-Returns a list of vcard objects, one per contact entry.
+Returns a list of ecard objects, one per contact entry.
 Returns nil if no contacts found.
 
 Example:
-  (let ((vcards (vcard-org-buffer-to-vcards)))
+  (let ((vcards (ecard-org-buffer-to-vcards)))
     (message \"Found %d contacts\" (length vcards)))"
   (let ((vcards '()))
     (org-map-entries
      (lambda ()
-       (when-let ((vc (vcard-org-entry-to-vcard)))
+       (when-let ((vc (ecard-org-entry-to-ecard)))
          (push vc vcards)))
      nil nil)
     (nreverse vcards)))
 
-(defun vcard-org-region-to-vcards ()
-  "Export contacts in active region to list of vcard objects.
+(defun ecard-org-region-to-vcards ()
+  "Export contacts in active region to list of ecard objects.
 Only processes entries within the region that are marked as contacts.
 
 Signals an error if no region is active.
-Returns a list of vcard objects, one per contact entry.
+Returns a list of ecard objects, one per contact entry.
 Returns nil if no contacts found in region."
   (unless (use-region-p)
     (user-error "No active region"))
   (let ((vcards '()))
     (org-map-entries
      (lambda ()
-       (when-let ((vc (vcard-org-entry-to-vcard)))
+       (when-let ((vc (ecard-org-entry-to-ecard)))
          (push vc vcards)))
      nil 'region)
     (nreverse vcards)))
 
-(defun vcard-org-subtree-to-vcards ()
-  "Export contacts in current subtree to list of vcard objects.
+(defun ecard-org-subtree-to-vcards ()
+  "Export contacts in current subtree to list of ecard objects.
 Processes the current entry and all its children.
 
-Returns a list of vcard objects, one per contact entry.
+Returns a list of ecard objects, one per contact entry.
 Returns nil if no contacts found in subtree."
   (let ((vcards '()))
     (org-map-entries
      (lambda ()
-       (when-let ((vc (vcard-org-entry-to-vcard)))
+       (when-let ((vc (ecard-org-entry-to-ecard)))
          (push vc vcards)))
      nil 'tree)
     (nreverse vcards)))
 
 ;;; vCard to Org Conversion
 
-(defun vcard-org-vcard-to-entry (vc &optional level)
-  "Convert vcard object VC to Org entry string.
+(defun ecard-org-ecard-to-entry (vc &optional level)
+  "Convert ecard object VC to Org entry string.
 LEVEL specifies heading level (defaults to 1).
 
 Returns a string containing a complete Org entry with properties.
 The FN property becomes the heading.
 All vCard properties are mapped to Org properties according to
-`vcard-org-property-mappings'.
+`ecard-org-property-mappings'.
 
-If `vcard-org-auto-mark-contacts' is non-nil, adds :VCARD: t property.
+If `ecard-org-auto-mark-contacts' is non-nil, adds :VCARD: t property.
 
 Example:
-  (vcard-org-vcard-to-entry my-vcard 1)
+  (ecard-org-ecard-to-entry my-ecard 1)
   => \"* John Doe
   :PROPERTIES:
   :VCARD: t
@@ -365,40 +365,40 @@ Example:
   \""
   (let* ((level (or level 1))
          (stars (make-string level ?*))
-         (fn (or (vcard-get-property-value vc 'fn) "Unknown"))
+         (fn (or (ecard-get-property-value vc 'fn) "Unknown"))
          (properties '()))
 
     ;; Add VCARD marker if configured
-    (when vcard-org-auto-mark-contacts
+    (when ecard-org-auto-mark-contacts
       (push (cons "VCARD" "t") properties))
 
     ;; Handle N (structured name) if present and different from FN
-    (when-let ((n (vcard-get-property-value vc 'n)))
+    (when-let ((n (ecard-get-property-value vc 'n)))
       (push (cons "N" (mapconcat #'identity n ";")) properties))
 
     ;; Build reverse mapping for efficiency
-    (let ((reverse-mappings (vcard-org--get-reverse-mappings)))
+    (let ((reverse-mappings (ecard-org--get-reverse-mappings)))
 
       ;; Process each vCard slot
       (dolist (slot-mappings reverse-mappings)
-        (let* ((vcard-slot (car slot-mappings))
+        (let* ((ecard-slot (car slot-mappings))
                (_org-mappings (cdr slot-mappings))
-               (vcard-props (ignore-errors (slot-value vc vcard-slot))))
+               (ecard-props (ignore-errors (slot-value vc ecard-slot))))
 
           ;; Process each property value for this slot
-          (dolist (prop vcard-props)
+          (dolist (prop ecard-props)
             (let* ((value (oref prop value))
                    (params (oref prop parameters))
-                   (org-prop (vcard-org--find-org-prop-for-vcard-prop vcard-slot params)))
+                   (org-prop (ecard-org--find-org-prop-for-ecard-prop ecard-slot params)))
 
               (if org-prop
                   ;; Mapped property
-                  (let ((formatted-value (vcard-org--format-vcard-value value vcard-slot)))
+                  (let ((formatted-value (ecard-org--format-ecard-value value ecard-slot)))
                     (push (cons org-prop formatted-value) properties))
                 ;; Unmapped property
-                (when vcard-org-import-unmapped-properties
-                  (let* ((prop-name (upcase (symbol-name vcard-slot)))
-                         (formatted-value (vcard-org--format-vcard-value value vcard-slot)))
+                (when ecard-org-import-unmapped-properties
+                  (let* ((prop-name (upcase (symbol-name ecard-slot)))
+                         (formatted-value (ecard-org--format-ecard-value value ecard-slot)))
                     (push (cons prop-name formatted-value) properties)))))))))
 
     ;; Format as Org entry
@@ -414,16 +414,16 @@ Example:
 ;;; Interactive Export Commands
 
 ;;;###autoload
-(defun vcard-org-export-buffer (file)
+(defun ecard-org-export-buffer (file)
   "Export all contacts in current buffer to FILE (.vcf).
 Prompts for filename if called interactively.
 
-Only exports entries marked as contacts (see `vcard-org--is-contact-p').
+Only exports entries marked as contacts (see `ecard-org--is-contact-p').
 The file is created or overwritten with vCard 3.0 format data.
 
 Returns the number of contacts exported, or nil if none found."
   (interactive "FExport contacts to vCard file: ")
-  (let* ((vcards (vcard-org-buffer-to-vcards))
+  (let* ((vcards (ecard-org-buffer-to-vcards))
          (count (length vcards)))
     (if (zerop count)
         (progn
@@ -431,14 +431,14 @@ Returns the number of contacts exported, or nil if none found."
           nil)
       (with-temp-file file
         (dolist (vc vcards)
-          (insert (vcard-serialize vc))
+          (insert (ecard-serialize vc))
           (insert "\n")))
       (message "Exported %d contact%s to %s"
                count (if (= count 1) "" "s") file)
       count)))
 
 ;;;###autoload
-(defun vcard-org-export-region (file)
+(defun ecard-org-export-region (file)
   "Export contacts in active region to FILE (.vcf).
 Prompts for filename if called interactively.
 
@@ -449,7 +449,7 @@ Returns the number of contacts exported, or nil if none found."
   (interactive "FExport region to vCard file: ")
   (unless (use-region-p)
     (user-error "No active region"))
-  (let* ((vcards (vcard-org-region-to-vcards))
+  (let* ((vcards (ecard-org-region-to-vcards))
          (count (length vcards)))
     (if (zerop count)
         (progn
@@ -457,14 +457,14 @@ Returns the number of contacts exported, or nil if none found."
           nil)
       (with-temp-file file
         (dolist (vc vcards)
-          (insert (vcard-serialize vc))
+          (insert (ecard-serialize vc))
           (insert "\n")))
       (message "Exported %d contact%s from region to %s"
                count (if (= count 1) "" "s") file)
       count)))
 
 ;;;###autoload
-(defun vcard-org-export-subtree (file)
+(defun ecard-org-export-subtree (file)
   "Export contacts in current subtree to FILE (.vcf).
 Prompts for filename if called interactively.
 
@@ -472,7 +472,7 @@ Exports the current entry and all its children that are marked as contacts.
 
 Returns the number of contacts exported, or nil if none found."
   (interactive "FExport subtree to vCard file: ")
-  (let* ((vcards (vcard-org-subtree-to-vcards))
+  (let* ((vcards (ecard-org-subtree-to-vcards))
          (count (length vcards)))
     (if (zerop count)
         (progn
@@ -480,7 +480,7 @@ Returns the number of contacts exported, or nil if none found."
           nil)
       (with-temp-file file
         (dolist (vc vcards)
-          (insert (vcard-serialize vc))
+          (insert (ecard-serialize vc))
           (insert "\n")))
       (message "Exported %d contact%s from subtree to %s"
                count (if (= count 1) "" "s") file)
@@ -489,7 +489,7 @@ Returns the number of contacts exported, or nil if none found."
 ;;; Interactive Import Commands
 
 ;;;###autoload
-(defun vcard-org-import-file (file &optional level)
+(defun ecard-org-import-file (file &optional level)
   "Import vCards from FILE into current buffer at point.
 LEVEL specifies heading level for imported entries (default 1).
 Prompts for filename if called interactively.
@@ -497,13 +497,13 @@ Prompts for filename if called interactively.
 Inserts Org entries for all vCards found in FILE.
 Each vCard becomes a separate heading with properties.
 
-If `vcard-org-auto-mark-contacts' is non-nil, imported entries
+If `ecard-org-auto-mark-contacts' is non-nil, imported entries
 are marked with :VCARD: t property.
 
 Returns the number of contacts imported, or nil if none found."
   (interactive "fImport vCard file: \nP")
   (let* ((level (if (numberp level) level 1))
-         (vcards (vcard-compat-parse-file file))
+         (vcards (ecard-compat-parse-file file))
          (count (length vcards)))
     (if (zerop count)
         (progn
@@ -513,14 +513,14 @@ Returns the number of contacts imported, or nil if none found."
         (goto-char (point-max))
         (unless (bolp) (insert "\n"))
         (dolist (vc vcards)
-          (insert (vcard-org-vcard-to-entry vc level))
+          (insert (ecard-org-ecard-to-entry vc level))
           (insert "\n")))
       (message "Imported %d contact%s from %s"
                count (if (= count 1) "" "s") file)
       count)))
 
 ;;;###autoload
-(defun vcard-org-import-buffer (&optional buffer level)
+(defun ecard-org-import-buffer (&optional buffer level)
   "Import vCards from BUFFER into current buffer at point.
 BUFFER defaults to the current buffer.
 LEVEL specifies heading level for imported entries (default 1).
@@ -532,7 +532,7 @@ Returns the number of contacts imported, or nil if none found."
   (let* ((buffer (or buffer (current-buffer)))
          (level (or level 1))
          (vcards-raw (with-current-buffer buffer
-                       (vcard-compat-parse-buffer)))
+                       (ecard-compat-parse-buffer)))
          ;; Ensure vcards is always a list
          (vcards (if (listp vcards-raw) vcards-raw (list vcards-raw)))
          (count (length vcards)))
@@ -544,14 +544,14 @@ Returns the number of contacts imported, or nil if none found."
         (goto-char (point-max))
         (unless (bolp) (insert "\n"))
         (dolist (vc vcards)
-          (insert (vcard-org-vcard-to-entry vc level))
+          (insert (ecard-org-ecard-to-entry vc level))
           (insert "\n")))
       (message "Imported %d contact%s from buffer"
                count (if (= count 1) "" "s"))
       count)))
 
 ;;;###autoload
-(defun vcard-org-import-region (start end &optional level)
+(defun ecard-org-import-region (start end &optional level)
   "Import vCards from region between START and END.
 LEVEL specifies heading level for imported entries (default 1).
 
@@ -560,11 +560,11 @@ Supports vCard 2.1, 3.0, and 4.0 formats via compatibility layer.
 Returns the number of contacts imported, or nil if none found."
   (interactive "r\nP")
   (let* ((level (if (numberp level) level 1))
-         (vcard-text (buffer-substring-no-properties start end))
+         (ecard-text (buffer-substring-no-properties start end))
          (vcards-raw (with-temp-buffer
-                       (insert vcard-text)
+                       (insert ecard-text)
                        (goto-char (point-min))
-                       (vcard-compat-parse-buffer)))
+                       (ecard-compat-parse-buffer)))
          ;; Ensure vcards is always a list
          (vcards (if (listp vcards-raw) vcards-raw (list vcards-raw)))
          (count (length vcards)))
@@ -576,7 +576,7 @@ Returns the number of contacts imported, or nil if none found."
         (goto-char (point-max))
         (unless (bolp) (insert "\n"))
         (dolist (vc vcards)
-          (insert (vcard-org-vcard-to-entry vc level))
+          (insert (ecard-org-ecard-to-entry vc level))
           (insert "\n")))
       (message "Imported %d contact%s from region"
                count (if (= count 1) "" "s"))
@@ -584,7 +584,7 @@ Returns the number of contacts imported, or nil if none found."
 
 ;;; Utility Functions
 
-(defun vcard-org-validate-entry ()
+(defun ecard-org-validate-entry ()
   "Validate current Org entry as a vCard contact.
 Checks that required properties are present and well-formed.
 Returns t if valid, nil otherwise.
@@ -596,7 +596,7 @@ Displays warnings for any issues found."
           (fn (org-get-heading t t t t)))
 
       ;; Check if marked as contact
-      (unless (vcard-org--is-contact-p)
+      (unless (ecard-org--is-contact-p)
         (push "Entry not marked as contact (no VCARD property)" issues))
 
       ;; FN is required
@@ -625,18 +625,18 @@ Displays warnings for any issues found."
         (message "Entry is valid")
         t))))
 
-(defun vcard-org-count-contacts ()
+(defun ecard-org-count-contacts ()
   "Count number of contacts in current buffer.
 Returns the count and displays it in the message area."
   (interactive)
   (let ((count 0))
     (org-map-entries
      (lambda ()
-       (when (vcard-org--is-contact-p)
+       (when (ecard-org--is-contact-p)
          (setq count (1+ count))))
      nil nil)
     (message "Found %d contact%s" count (if (= count 1) "" "s"))
     count))
 
-(provide 'vcard-org)
-;;; vcard-org.el ends here
+(provide 'ecard-org)
+;;; ecard-org.el ends here

@@ -1,4 +1,4 @@
-;;; vcard-carddav-sync.el --- CardDAV synchronization engine -*- lexical-binding: t; -*-
+;;; ecard-carddav-sync.el --- CardDAV synchronization engine -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2025 John Wiegley
 
@@ -30,52 +30,52 @@
 ;; Example usage:
 ;;
 ;;   ;; Create sync manager
-;;   (setq sync (vcard-carddav-sync-create
+;;   (setq sync (ecard-carddav-sync-create
 ;;               :addressbook addressbook
 ;;               :cache-dir "~/.emacs.d/carddav-cache"
 ;;               :strategy :server-wins))
 ;;
 ;;   ;; Initial full sync
-;;   (vcard-carddav-sync-full sync)
+;;   (ecard-carddav-sync-full sync)
 ;;
 ;;   ;; Incremental sync
-;;   (vcard-carddav-sync-incremental sync)
+;;   (ecard-carddav-sync-incremental sync)
 ;;
 ;;   ;; Get locally cached contacts
-;;   (vcard-carddav-sync-get-local sync "/contacts/john.vcf")
+;;   (ecard-carddav-sync-get-local sync "/contacts/john.vcf")
 
 ;;; Code:
 
 (require 'cl-lib)
 (require 'eieio)
-(require 'vcard)
-(require 'vcard-carddav)
-(require 'vcard-carddav-auth)
+(require 'ecard)
+(require 'ecard-carddav)
+(require 'ecard-carddav-auth)
 
 ;;; Custom group
 
-(defgroup vcard-carddav-sync nil
+(defgroup ecard-carddav-sync nil
   "Synchronization engine for CardDAV."
-  :group 'vcard-carddav
-  :prefix "vcard-carddav-sync-")
+  :group 'ecard-carddav
+  :prefix "ecard-carddav-sync-")
 
-(defcustom vcard-carddav-sync-batch-size 50
+(defcustom ecard-carddav-sync-batch-size 50
   "Number of resources to fetch in a single multiget request."
   :type 'integer
-  :group 'vcard-carddav-sync)
+  :group 'ecard-carddav-sync)
 
 ;;; Error conditions
 
-(define-error 'vcard-carddav-sync-error "CardDAV sync error")
-(define-error 'vcard-carddav-sync-conflict "CardDAV sync conflict" 'vcard-carddav-sync-error)
+(define-error 'ecard-carddav-sync-error "CardDAV sync error")
+(define-error 'ecard-carddav-sync-conflict "CardDAV sync conflict" 'ecard-carddav-sync-error)
 
 ;;; EIEIO Classes
 
-(defclass vcard-carddav-sync ()
+(defclass ecard-carddav-sync ()
   ((addressbook
     :initarg :addressbook
     :initform nil
-    :type (or null vcard-carddav-addressbook)
+    :type (or null ecard-carddav-addressbook)
     :documentation "Address book to synchronize.")
    (cache-dir
     :initarg :cache-dir
@@ -86,7 +86,7 @@
     :initarg :local-cache
     :initform (make-hash-table :test 'equal)
     :type hash-table
-    :documentation "Hash table: path -> (vcard etag mtime).")
+    :documentation "Hash table: path -> (ecard etag mtime).")
    (last-sync-token
     :initarg :last-sync-token
     :initform nil
@@ -109,26 +109,26 @@
     :documentation "Callback for manual conflict resolution."))
   "Synchronization manager for CardDAV address book.")
 
-(defclass vcard-carddav-sync-conflict ()
+(defclass ecard-carddav-sync-conflict ()
   ((path
     :initarg :path
     :initform nil
     :type (or null string)
     :documentation "Path to conflicting resource.")
-   (local-vcard
-    :initarg :local-vcard
+   (local-ecard
+    :initarg :local-ecard
     :initform nil
-    :type (or null vcard)
+    :type (or null ecard)
     :documentation "Local version of vCard.")
    (local-etag
     :initarg :local-etag
     :initform nil
     :type (or null string)
     :documentation "Local ETag.")
-   (server-vcard
-    :initarg :server-vcard
+   (server-ecard
+    :initarg :server-ecard
     :initform nil
-    :type (or null vcard)
+    :type (or null ecard)
     :documentation "Server version of vCard.")
    (server-etag
     :initarg :server-etag
@@ -144,46 +144,46 @@
 
 ;;; Cache management
 
-(defun vcard-carddav-sync--cache-file-path (sync path)
+(defun ecard-carddav-sync--cache-file-path (sync path)
   "Get cache file path for SYNC manager and resource PATH."
   (let* ((cache-dir (oref sync cache-dir))
          ;; Sanitize path for filename
          (safe-name (replace-regexp-in-string "[/:]" "_" path)))
     (expand-file-name (concat safe-name ".vcf") cache-dir)))
 
-(defun vcard-carddav-sync--ensure-cache-dir (sync)
+(defun ecard-carddav-sync--ensure-cache-dir (sync)
   "Ensure cache directory exists for SYNC manager."
   (let ((cache-dir (oref sync cache-dir)))
     (unless (file-directory-p cache-dir)
       (make-directory cache-dir t))))
 
-(defun vcard-carddav-sync--save-to-cache (sync path vcard etag)
+(defun ecard-carddav-sync--save-to-cache (sync path ecard etag)
   "Save VCARD with ETAG to cache for SYNC manager at PATH."
-  (vcard-carddav-sync--ensure-cache-dir sync)
-  (let* ((cache-file (vcard-carddav-sync--cache-file-path sync path))
-         (vcard-data (vcard-serialize vcard)))
+  (ecard-carddav-sync--ensure-cache-dir sync)
+  (let* ((cache-file (ecard-carddav-sync--cache-file-path sync path))
+         (ecard-data (ecard-serialize ecard)))
     (with-temp-file cache-file
-      (insert vcard-data))
+      (insert ecard-data))
     ;; Update in-memory cache
     (puthash path
-             (list vcard etag (float-time))
+             (list ecard etag (float-time))
              (oref sync local-cache))))
 
-(defun vcard-carddav-sync--load-from-cache (sync path)
+(defun ecard-carddav-sync--load-from-cache (sync path)
   "Load vCard from cache for SYNC manager at PATH.
-Returns (vcard etag mtime) or nil if not in cache."
+Returns (ecard etag mtime) or nil if not in cache."
   (gethash path (oref sync local-cache)))
 
-(defun vcard-carddav-sync--remove-from-cache (sync path)
+(defun ecard-carddav-sync--remove-from-cache (sync path)
   "Remove resource at PATH from cache for SYNC manager."
-  (let ((cache-file (vcard-carddav-sync--cache-file-path sync path)))
+  (let ((cache-file (ecard-carddav-sync--cache-file-path sync path)))
     (when (file-exists-p cache-file)
       (delete-file cache-file)))
   (remhash path (oref sync local-cache)))
 
-(defun vcard-carddav-sync--load-cache-index (sync)
+(defun ecard-carddav-sync--load-cache-index (sync)
   "Load cache index from disk for SYNC manager."
-  (vcard-carddav-sync--ensure-cache-dir sync)
+  (ecard-carddav-sync--ensure-cache-dir sync)
   (let* ((cache-dir (oref sync cache-dir))
          (index-file (expand-file-name ".index" cache-dir)))
     (when (file-exists-p index-file)
@@ -193,9 +193,9 @@ Returns (vcard etag mtime) or nil if not in cache."
           (when (hash-table-p data)
             (oset sync local-cache data)))))))
 
-(defun vcard-carddav-sync--save-cache-index (sync)
+(defun ecard-carddav-sync--save-cache-index (sync)
   "Save cache index to disk for SYNC manager."
-  (vcard-carddav-sync--ensure-cache-dir sync)
+  (ecard-carddav-sync--ensure-cache-dir sync)
   (let* ((cache-dir (oref sync cache-dir))
          (index-file (expand-file-name ".index" cache-dir)))
     (with-temp-file index-file
@@ -203,12 +203,12 @@ Returns (vcard etag mtime) or nil if not in cache."
 
 ;;; Conflict resolution
 
-(defun vcard-carddav-sync--resolve-conflict (sync conflict)
+(defun ecard-carddav-sync--resolve-conflict (sync conflict)
   "Resolve CONFLICT using SYNC manager's strategy.
-Returns resolved vcard object."
+Returns resolved ecard object."
   (let ((strategy (oref sync strategy))
-        (local (oref conflict local-vcard))
-        (server (oref conflict server-vcard)))
+        (local (oref conflict local-ecard))
+        (server (oref conflict server-ecard)))
     (pcase strategy
       (:server-wins
        (oset conflict resolution :use-server)
@@ -217,25 +217,25 @@ Returns resolved vcard object."
        (oset conflict resolution :use-local)
        local)
       (:newest
-       (vcard-carddav-sync--resolve-newest conflict))
+       (ecard-carddav-sync--resolve-newest conflict))
       (:manual
        (let ((callback (oref sync conflict-callback)))
          (if callback
              (funcall callback conflict)
-           (signal 'vcard-carddav-sync-conflict
+           (signal 'ecard-carddav-sync-conflict
                    (list "Manual conflict resolution required but no callback set"
                          (oref conflict path))))))
       (_
-       (signal 'vcard-carddav-sync-error
+       (signal 'ecard-carddav-sync-error
                (list "Unknown conflict resolution strategy" strategy))))))
 
-(defun vcard-carddav-sync--resolve-newest (conflict)
+(defun ecard-carddav-sync--resolve-newest (conflict)
   "Resolve CONFLICT by comparing REV properties.
-Returns newest vcard or server version if REV not available."
-  (let* ((local (oref conflict local-vcard))
-         (server (oref conflict server-vcard))
-         (local-rev (vcard-get-property-value local 'rev))
-         (server-rev (vcard-get-property-value server 'rev)))
+Returns newest ecard or server version if REV not available."
+  (let* ((local (oref conflict local-ecard))
+         (server (oref conflict server-ecard))
+         (local-rev (ecard-get-property-value local 'rev))
+         (server-rev (ecard-get-property-value server 'rev)))
     (cond
      ((and local-rev server-rev)
       (if (string> server-rev local-rev)
@@ -257,28 +257,28 @@ Returns newest vcard or server version if REV not available."
 
 ;;; Synchronization operations
 
-(defun vcard-carddav-sync-full (sync)
+(defun ecard-carddav-sync-full (sync)
   "Perform full synchronization for SYNC manager.
 Fetches all resources from server and updates local cache.
 Returns list of updated paths."
-  (vcard-carddav-sync--load-cache-index sync)
+  (ecard-carddav-sync--load-cache-index sync)
   (let* ((addressbook (oref sync addressbook))
-         (resources (vcard-carddav-list-resources addressbook))
+         (resources (ecard-carddav-list-resources addressbook))
          (updated-paths nil))
     ;; Process each resource
     (dolist (resource resources)
       (let* ((path (oref resource path))
              (server-etag (oref resource etag))
-             (cached (vcard-carddav-sync--load-from-cache sync path)))
+             (cached (ecard-carddav-sync--load-from-cache sync path)))
         (if (and cached (string= server-etag (nth 1 cached)))
             ;; ETag matches - no change needed
             nil
           ;; Need to fetch
           (condition-case err
-              (let ((full-resource (vcard-carddav-get-vcard addressbook path)))
-                (vcard-carddav-sync--save-to-cache
+              (let ((full-resource (ecard-carddav-get-ecard addressbook path)))
+                (ecard-carddav-sync--save-to-cache
                  sync path
-                 (oref full-resource vcard)
+                 (oref full-resource ecard)
                  (oref full-resource etag))
                 (push path updated-paths))
             (error
@@ -287,22 +287,22 @@ Returns list of updated paths."
     ;; Update sync metadata
     (oset sync last-sync-token (oref addressbook sync-token))
     (oset sync last-ctag (oref addressbook ctag))
-    (vcard-carddav-sync--save-cache-index sync)
+    (ecard-carddav-sync--save-cache-index sync)
 
     (nreverse updated-paths)))
 
-(defun vcard-carddav-sync-incremental (sync)
+(defun ecard-carddav-sync-incremental (sync)
   "Perform incremental synchronization for SYNC manager.
 Uses sync-token if available, otherwise falls back to CTag comparison.
 Returns plist with :added :modified :deleted paths."
-  (vcard-carddav-sync--load-cache-index sync)
+  (ecard-carddav-sync--load-cache-index sync)
   (let* ((addressbook (oref sync addressbook))
          (last-token (oref sync last-sync-token))
          (result nil))
 
     (if last-token
         ;; Use sync-collection REPORT
-        (setq result (vcard-carddav-sync--sync-collection sync))
+        (setq result (ecard-carddav-sync--sync-collection sync))
       ;; Fall back to CTag comparison
       (let* ((last-ctag (oref sync last-ctag))
              (current-ctag (oref addressbook ctag)))
@@ -310,13 +310,13 @@ Returns plist with :added :modified :deleted paths."
             ;; No changes
             (setq result '(:added nil :modified nil :deleted nil))
           ;; CTag changed - do full sync
-          (let ((updated (vcard-carddav-sync-full sync)))
+          (let ((updated (ecard-carddav-sync-full sync)))
             (setq result (list :added updated :modified nil :deleted nil))))))
 
-    (vcard-carddav-sync--save-cache-index sync)
+    (ecard-carddav-sync--save-cache-index sync)
     result))
 
-(defun vcard-carddav-sync--sync-collection (sync)
+(defun ecard-carddav-sync--sync-collection (sync)
   "Perform sync-collection REPORT for SYNC manager.
 Returns plist with :added :modified :deleted paths."
   (let* ((addressbook (oref sync addressbook))
@@ -324,28 +324,28 @@ Returns plist with :added :modified :deleted paths."
          (auth (oref server auth))
          (url (oref addressbook url))
          (sync-token (oref sync last-sync-token))
-         (request-body (vcard-carddav-sync--make-sync-collection-body sync-token))
-         (buffer (vcard-carddav--request-with-retry
+         (request-body (ecard-carddav-sync--make-sync-collection-body sync-token))
+         (buffer (ecard-carddav--request-with-retry
                   "REPORT" url auth request-body
                   "application/xml; charset=utf-8"
                   '(("Depth" . "1")))))
     (unwind-protect
-        (let* ((status (vcard-carddav--get-http-status buffer))
+        (let* ((status (ecard-carddav--get-http-status buffer))
                (xml (when (and status (= status 207))
-                     (vcard-carddav--parse-xml-response buffer))))
+                     (ecard-carddav--parse-xml-response buffer))))
           (if xml
-              (vcard-carddav-sync--process-sync-response sync xml url)
-            (signal 'vcard-carddav-sync-error
+              (ecard-carddav-sync--process-sync-response sync xml url)
+            (signal 'ecard-carddav-sync-error
                     (list "sync-collection REPORT failed" status))))
       (kill-buffer buffer))))
 
-(defun vcard-carddav-sync--make-sync-collection-body (sync-token)
+(defun ecard-carddav-sync--make-sync-collection-body (sync-token)
   "Create sync-collection REPORT request body with SYNC-TOKEN."
   (with-temp-buffer
     (insert "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
     (insert (format "<sync-collection xmlns=\"%s\" xmlns:C=\"%s\">\n"
-                   vcard-carddav-ns-dav
-                   vcard-carddav-ns-carddav))
+                   ecard-carddav-ns-dav
+                   ecard-carddav-ns-carddav))
     (insert (format "  <sync-token>%s</sync-token>\n" (or sync-token "")))
     (insert "  <sync-level>1</sync-level>\n")
     (insert "  <prop>\n")
@@ -354,7 +354,7 @@ Returns plist with :added :modified :deleted paths."
     (insert "</sync-collection>\n")
     (buffer-string)))
 
-(defun vcard-carddav-sync--process-sync-response (sync xml base-url)
+(defun ecard-carddav-sync--process-sync-response (sync xml base-url)
   "Process sync-collection response XML for SYNC manager.
 BASE-URL is used to resolve relative URLs.
 Returns plist with :added :modified :deleted paths."
@@ -364,37 +364,37 @@ Returns plist with :added :modified :deleted paths."
         (new-sync-token nil))
 
     ;; Extract new sync-token
-    (let ((token-nodes (vcard-carddav--dom-by-tag-qname xml 'sync-token vcard-carddav-ns-dav)))
+    (let ((token-nodes (ecard-carddav--dom-by-tag-qname xml 'sync-token ecard-carddav-ns-dav)))
       (when token-nodes
         (setq new-sync-token (dom-text (car token-nodes)))))
 
     ;; Process responses
-    (let ((responses (vcard-carddav--dom-by-tag-qname xml 'response vcard-carddav-ns-dav)))
+    (let ((responses (ecard-carddav--dom-by-tag-qname xml 'response ecard-carddav-ns-dav)))
       (dolist (response responses)
-        (let* ((href-node (vcard-carddav--dom-by-tag-qname response 'href vcard-carddav-ns-dav))
+        (let* ((href-node (ecard-carddav--dom-by-tag-qname response 'href ecard-carddav-ns-dav))
                (href (when href-node (dom-text (car href-node))))
-               (status-node (vcard-carddav--dom-by-tag-qname response 'status vcard-carddav-ns-dav))
+               (status-node (ecard-carddav--dom-by-tag-qname response 'status ecard-carddav-ns-dav))
                (status-text (when status-node (dom-text (car status-node))))
                (is-deleted (and status-text (string-match "404" status-text))))
 
           (when href
-            (let* ((url (vcard-carddav--resolve-url href base-url))
+            (let* ((url (ecard-carddav--resolve-url href base-url))
                    (path (url-filename (url-generic-parse-url url))))
 
               (if is-deleted
                   ;; Deleted resource
                   (progn
-                    (vcard-carddav-sync--remove-from-cache sync path)
+                    (ecard-carddav-sync--remove-from-cache sync path)
                     (push path deleted))
 
                 ;; Added or modified resource
-                (let* ((propstat (vcard-carddav--dom-by-tag-qname response 'propstat vcard-carddav-ns-dav))
-                       (prop (when propstat (vcard-carddav--dom-by-tag-qname (car propstat) 'prop
-                                                                               vcard-carddav-ns-dav)))
-                       (etag-node (when prop (vcard-carddav--dom-by-tag-qname (car prop) 'getetag
-                                                                                vcard-carddav-ns-dav)))
+                (let* ((propstat (ecard-carddav--dom-by-tag-qname response 'propstat ecard-carddav-ns-dav))
+                       (prop (when propstat (ecard-carddav--dom-by-tag-qname (car propstat) 'prop
+                                                                               ecard-carddav-ns-dav)))
+                       (etag-node (when prop (ecard-carddav--dom-by-tag-qname (car prop) 'getetag
+                                                                                ecard-carddav-ns-dav)))
                        (etag (when etag-node (dom-text (car etag-node))))
-                       (cached (vcard-carddav-sync--load-from-cache sync path)))
+                       (cached (ecard-carddav-sync--load-from-cache sync path)))
 
                   (when etag
                     (setq etag (string-trim etag "\"" "\"")))
@@ -409,7 +409,7 @@ Returns plist with :added :modified :deleted paths."
 
     ;; Fetch content for added/modified resources
     (let ((to-fetch (append added modified)))
-      (vcard-carddav-sync--multiget sync to-fetch))
+      (ecard-carddav-sync--multiget sync to-fetch))
 
     ;; Update sync token
     (when new-sync-token
@@ -419,41 +419,41 @@ Returns plist with :added :modified :deleted paths."
           :modified (nreverse modified)
           :deleted (nreverse deleted))))
 
-(defun vcard-carddav-sync--multiget (sync paths)
+(defun ecard-carddav-sync--multiget (sync paths)
   "Fetch multiple resources using addressbook-multiget for SYNC manager.
 PATHS is list of resource paths to fetch."
   (when paths
-    (let ((batches (seq-partition paths vcard-carddav-sync-batch-size)))
+    (let ((batches (seq-partition paths ecard-carddav-sync-batch-size)))
       (dolist (batch batches)
-        (vcard-carddav-sync--multiget-batch sync batch)))))
+        (ecard-carddav-sync--multiget-batch sync batch)))))
 
-(defun vcard-carddav-sync--multiget-batch (sync paths)
+(defun ecard-carddav-sync--multiget-batch (sync paths)
   "Fetch batch of resources using addressbook-multiget for SYNC manager.
 PATHS is list of resource paths to fetch in this batch."
   (let* ((addressbook (oref sync addressbook))
          (server (oref addressbook server))
          (auth (oref server auth))
          (url (oref addressbook url))
-         (request-body (vcard-carddav-sync--make-multiget-body paths))
-         (buffer (vcard-carddav--request-with-retry
+         (request-body (ecard-carddav-sync--make-multiget-body paths))
+         (buffer (ecard-carddav--request-with-retry
                   "REPORT" url auth request-body
                   "application/xml; charset=utf-8"
                   '(("Depth" . "1")))))
     (unwind-protect
-        (let* ((status (vcard-carddav--get-http-status buffer))
+        (let* ((status (ecard-carddav--get-http-status buffer))
                (xml (when (and status (= status 207))
-                     (vcard-carddav--parse-xml-response buffer))))
+                     (ecard-carddav--parse-xml-response buffer))))
           (when xml
-            (vcard-carddav-sync--process-multiget-response sync xml url)))
+            (ecard-carddav-sync--process-multiget-response sync xml url)))
       (kill-buffer buffer))))
 
-(defun vcard-carddav-sync--make-multiget-body (paths)
+(defun ecard-carddav-sync--make-multiget-body (paths)
   "Create addressbook-multiget REPORT request body for PATHS."
   (with-temp-buffer
     (insert "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
     (insert (format "<C:addressbook-multiget xmlns=\"%s\" xmlns:C=\"%s\">\n"
-                   vcard-carddav-ns-dav
-                   vcard-carddav-ns-carddav))
+                   ecard-carddav-ns-dav
+                   ecard-carddav-ns-carddav))
     (insert "  <prop>\n")
     (insert "    <getetag/>\n")
     (insert "    <C:address-data/>\n")
@@ -463,48 +463,48 @@ PATHS is list of resource paths to fetch in this batch."
     (insert "</C:addressbook-multiget>\n")
     (buffer-string)))
 
-(defun vcard-carddav-sync--process-multiget-response (sync xml base-url)
+(defun ecard-carddav-sync--process-multiget-response (sync xml base-url)
   "Process addressbook-multiget response XML for SYNC manager.
 BASE-URL is used to resolve relative URLs."
-  (let ((responses (vcard-carddav--dom-by-tag-qname xml 'response vcard-carddav-ns-dav)))
+  (let ((responses (ecard-carddav--dom-by-tag-qname xml 'response ecard-carddav-ns-dav)))
     (dolist (response responses)
-      (let* ((href-node (vcard-carddav--dom-by-tag-qname response 'href vcard-carddav-ns-dav))
+      (let* ((href-node (ecard-carddav--dom-by-tag-qname response 'href ecard-carddav-ns-dav))
              (href (when href-node (dom-text (car href-node))))
-             (propstat (vcard-carddav--dom-by-tag-qname response 'propstat vcard-carddav-ns-dav))
-             (prop (when propstat (vcard-carddav--dom-by-tag-qname (car propstat) 'prop
-                                                                     vcard-carddav-ns-dav)))
-             (etag-node (when prop (vcard-carddav--dom-by-tag-qname (car prop) 'getetag
-                                                                      vcard-carddav-ns-dav)))
+             (propstat (ecard-carddav--dom-by-tag-qname response 'propstat ecard-carddav-ns-dav))
+             (prop (when propstat (ecard-carddav--dom-by-tag-qname (car propstat) 'prop
+                                                                     ecard-carddav-ns-dav)))
+             (etag-node (when prop (ecard-carddav--dom-by-tag-qname (car prop) 'getetag
+                                                                      ecard-carddav-ns-dav)))
              (etag (when etag-node (dom-text (car etag-node))))
-             (data-node (when prop (vcard-carddav--dom-by-tag-qname (car prop) 'address-data
-                                                                      vcard-carddav-ns-carddav)))
-             (vcard-data (when data-node (dom-text (car data-node)))))
+             (data-node (when prop (ecard-carddav--dom-by-tag-qname (car prop) 'address-data
+                                                                      ecard-carddav-ns-carddav)))
+             (ecard-data (when data-node (dom-text (car data-node)))))
 
-        (when (and href vcard-data)
-          (let* ((url (vcard-carddav--resolve-url href base-url))
+        (when (and href ecard-data)
+          (let* ((url (ecard-carddav--resolve-url href base-url))
                  (path (url-filename (url-generic-parse-url url))))
 
             (when etag
               (setq etag (string-trim etag "\"" "\"")))
 
             (condition-case err
-                (let ((vcard-obj (vcard-parse vcard-data)))
-                  (vcard-carddav-sync--save-to-cache sync path vcard-obj etag))
+                (let ((ecard-obj (ecard-parse ecard-data)))
+                  (ecard-carddav-sync--save-to-cache sync path ecard-obj etag))
               (error
                (message "Warning: Failed to parse vCard at %s: %s" path err)))))))))
 
 ;;; Public API
 
-(defun vcard-carddav-sync-get-local (sync path)
+(defun ecard-carddav-sync-get-local (sync path)
   "Get locally cached vCard at PATH from SYNC manager.
-Returns vcard object or nil if not in cache."
-  (let ((cached (vcard-carddav-sync--load-from-cache sync path)))
+Returns ecard object or nil if not in cache."
+  (let ((cached (ecard-carddav-sync--load-from-cache sync path)))
     (when cached
       (car cached))))
 
-(defun vcard-carddav-sync-get-all-local (sync)
+(defun ecard-carddav-sync-get-all-local (sync)
   "Get all locally cached vCards from SYNC manager.
-Returns list of (path . vcard) pairs."
+Returns list of (path . ecard) pairs."
   (let ((results nil))
     (maphash (lambda (path data)
                (push (cons path (car data)) results))
@@ -512,7 +512,7 @@ Returns list of (path . vcard) pairs."
     (nreverse results)))
 
 ;;;###autoload
-(defun vcard-carddav-sync-create (&rest args)
+(defun ecard-carddav-sync-create (&rest args)
   "Create synchronization manager from ARGS.
 
 ARGS is a plist with keys:
@@ -522,7 +522,7 @@ ARGS is a plist with keys:
   :conflict-callback FUNCTION - Callback for manual resolution (optional)
 
 Example:
-  (vcard-carddav-sync-create
+  (ecard-carddav-sync-create
    :addressbook addressbook
    :cache-dir \"~/.emacs.d/carddav-cache\"
    :strategy :server-wins)"
@@ -531,14 +531,14 @@ Example:
         (strategy (or (plist-get args :strategy) :server-wins))
         (callback (plist-get args :conflict-callback)))
     (unless addressbook
-      (signal 'vcard-carddav-sync-error '("Address book required")))
+      (signal 'ecard-carddav-sync-error '("Address book required")))
     (unless cache-dir
-      (signal 'vcard-carddav-sync-error '("Cache directory required")))
-    (vcard-carddav-sync
+      (signal 'ecard-carddav-sync-error '("Cache directory required")))
+    (ecard-carddav-sync
      :addressbook addressbook
      :cache-dir (expand-file-name cache-dir)
      :strategy strategy
      :conflict-callback callback)))
 
-(provide 'vcard-carddav-sync)
-;;; vcard-carddav-sync.el ends here
+(provide 'ecard-carddav-sync)
+;;; ecard-carddav-sync.el ends here

@@ -1,17 +1,24 @@
 ;; -*- mode: eask; lexical-binding: t -*-
 
-(package "vcard"
+(package "ecard"
          "1.0.0"
          "vCard 4.0 (RFC 6350) parser and serializer")
 
-(website-url "https://github.com/jwiegley/emacs-vcard")
+(website-url "https://github.com/jwiegley/ecard")
 (keywords "programming" "lisp")
 
-(package-file "vcard.el")
+(package-file "ecard.el")
 
 (files
- "vcard-compat.el"
- "vcard-org.el"
+ "ecard-benchmark.el"
+ "ecard-carddav-auth.el"
+ "ecard-carddav-mock.el"
+ "ecard-carddav-sync.el"
+ "ecard-carddav.el"
+ "ecard-compat-examples.el"
+ "ecard-compat.el"
+ "ecard-org.el"
+ "ecard.el"
  )
 
 (script "test" "echo \"Error: no test specified\" && exit 1")

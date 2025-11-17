@@ -1,4 +1,4 @@
-;;; vcard-benchmark.el --- Performance benchmarks for vCard parsing -*- lexical-binding: t; -*-
+;;; ecard-benchmark.el --- Performance benchmarks for vCard parsing -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2025 John Wiegley
 
@@ -7,14 +7,14 @@
 ;;; Commentary:
 
 ;; Benchmarks to measure vCard parsing performance improvements.
-;; Run with: emacs -batch -L . -l vcard.el -l vcard-compat.el -l vcard-benchmark.el -f vcard-benchmark-run-all
+;; Run with: emacs -batch -L . -l ecard.el -l ecard-compat.el -l ecard-benchmark.el -f ecard-benchmark-run-all
 
 ;;; Code:
 
-(require 'vcard)
-(require 'vcard-compat)
+(require 'ecard)
+(require 'ecard-compat)
 
-(defun vcard-benchmark--generate-test-vcard (index)
+(defun ecard-benchmark--generate-test-ecard (index)
   "Generate a test vCard with INDEX."
   (format "BEGIN:VCARD
 VERSION:3.0
@@ -36,20 +36,20 @@ PHOTO;ENCODING=BASE64;TYPE=JPEG:SGVsbG8gV29ybGQ=
 END:VCARD"
           index index index index index index index index index index index index))
 
-(defun vcard-benchmark--generate-test-file (num-vcards)
+(defun ecard-benchmark--generate-test-file (num-vcards)
   "Generate a test file content with NUM-VCARDS vCards."
   (let ((vcards nil))
     (dotimes (i num-vcards)
-      (push (vcard-benchmark--generate-test-vcard (1+ i)) vcards))
+      (push (ecard-benchmark--generate-test-ecard (1+ i)) vcards))
     (mapconcat #'identity (nreverse vcards) "\n")))
 
-(defun vcard-benchmark-parse-large-file (&optional num-vcards iterations)
+(defun ecard-benchmark-parse-large-file (&optional num-vcards iterations)
   "Benchmark parsing a file with NUM-VCARDS vCards, ITERATIONS times.
 NUM-VCARDS defaults to 100, ITERATIONS defaults to 10."
   (interactive)
   (let* ((num-vcards (or num-vcards 100))
          (iterations (or iterations 10))
-         (test-data (vcard-benchmark--generate-test-file num-vcards))
+         (test-data (ecard-benchmark--generate-test-file num-vcards))
          (data-size (length test-data))
          (start-time (current-time))
          (results nil))
@@ -61,7 +61,7 @@ NUM-VCARDS defaults to 100, ITERATIONS defaults to 10."
 
     (dotimes (i iterations)
       (let ((iter-start (current-time)))
-        (setq results (vcard-compat-parse-multiple test-data))
+        (setq results (ecard-compat-parse-multiple test-data))
         (let ((elapsed (float-time (time-subtract (current-time) iter-start))))
           (when (zerop (mod i (max 1 (/ iterations 10))))
             (message "    Iteration %d/%d: %.3f seconds" (1+ i) iterations elapsed)))))
@@ -84,7 +84,7 @@ NUM-VCARDS defaults to 100, ITERATIONS defaults to 10."
             :bytes-per-sec bytes-per-sec
             :num-vcards (length results)))))
 
-(defun vcard-benchmark-parse-realistic (&optional iterations)
+(defun ecard-benchmark-parse-realistic (&optional iterations)
   "Benchmark parsing realistic vCard counts (100, 500, 1600).
 Simulates the user's use case with 1600 vCards in 135KB file.
 ITERATIONS defaults to 5 for large counts."
@@ -94,24 +94,24 @@ ITERATIONS defaults to 5 for large counts."
 
     ;; Small file (100 vCards)
     (message "--- Small file (100 vCards) ---")
-    (vcard-benchmark-parse-large-file 100 (* iterations 2))
+    (ecard-benchmark-parse-large-file 100 (* iterations 2))
 
     ;; Medium file (500 vCards)
     (message "\n--- Medium file (500 vCards) ---")
-    (vcard-benchmark-parse-large-file 500 iterations)
+    (ecard-benchmark-parse-large-file 500 iterations)
 
     ;; Large file (1600 vCards - user's scenario)
     (message "\n--- Large file (1600 vCards - user scenario) ---")
-    (vcard-benchmark-parse-large-file 1600 iterations)
+    (ecard-benchmark-parse-large-file 1600 iterations)
 
     (message "\n=== Benchmark complete ===\n")))
 
-(defun vcard-benchmark-compare-line-building ()
-  "Benchmark line unfolding performance (test `vcard--unfold-lines' optimization)."
+(defun ecard-benchmark-compare-line-building ()
+  "Benchmark line unfolding performance (test `ecard--unfold-lines' optimization)."
   (interactive)
   (let* ((long-line (concat "LONG-PROPERTY:This is a very long value that will be folded "
                            (make-string 1000 ?x)))
-         (folded-vcard (format "BEGIN:VCARD\nVERSION:4.0\nFN:Test\n%s\nEND:VCARD" long-line))
+         (folded-ecard (format "BEGIN:VCARD\nVERSION:4.0\nFN:Test\n%s\nEND:VCARD" long-line))
          (iterations 1000)
          (start-time (current-time)))
 
@@ -120,7 +120,7 @@ ITERATIONS defaults to 5 for large counts."
     (message "  Iterations: %d" iterations)
 
     (dotimes (_ iterations)
-      (vcard--unfold-lines folded-vcard))
+      (ecard--unfold-lines folded-ecard))
 
     (let* ((elapsed (float-time (time-subtract (current-time) start-time)))
            (per-iteration (/ elapsed iterations)))
@@ -130,19 +130,19 @@ ITERATIONS defaults to 5 for large counts."
       (message "  Average per iteration: %.6f seconds" per-iteration)
       (message "  Throughput: %.1f unfolds/sec" (/ iterations elapsed)))))
 
-(defun vcard-benchmark-run-all ()
+(defun ecard-benchmark-run-all ()
   "Run all vCard benchmarks."
   (interactive)
   (message "\n╔════════════════════════════════════════════════════════════╗")
   (message "║         vCard Performance Optimization Benchmark          ║")
   (message "╚════════════════════════════════════════════════════════════╝\n")
 
-  (vcard-benchmark-parse-realistic 5)
-  (vcard-benchmark-compare-line-building)
+  (ecard-benchmark-parse-realistic 5)
+  (ecard-benchmark-compare-line-building)
 
   (message "\n╔════════════════════════════════════════════════════════════╗")
   (message "║                    All Benchmarks Complete                 ║")
   (message "╚════════════════════════════════════════════════════════════╝\n"))
 
-(provide 'vcard-benchmark)
-;;; vcard-benchmark.el ends here
+(provide 'ecard-benchmark)
+;;; ecard-benchmark.el ends here

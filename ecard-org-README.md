@@ -1,4 +1,4 @@
-# vcard-org.el - Org-mode Integration for vCard
+# ecard-org.el - Org-mode Integration for vCard
 
 **Version:** 1.0.0
 **Author:** John Wiegley
@@ -28,18 +28,18 @@ Bidirectional conversion between Org-mode contact entries and vCard 4.0 format.
 
 ## Overview
 
-`vcard-org.el` provides seamless integration between Org-mode and the vCard format, enabling you to:
+`ecard-org.el` provides seamless integration between Org-mode and the vCard format, enabling you to:
 
 - **Export contacts** from Org-mode to industry-standard .vcf files
 - **Import contacts** from .vcf files (from phones, email clients, etc.) into Org-mode
 - **Sync contacts** between Org-mode and external applications
 - **Maintain contacts** in readable Org format with full vCard compatibility
 
-### Why vcard-org.el?
+### Why ecard-org.el?
 
 - ✅ **Org-native**: Keep your contacts in plain-text Org files
 - ✅ **Universal compatibility**: Export to any vCard-compatible application
-- ✅ **Full RFC 6350 compliance**: Uses the battle-tested `vcard.el` library
+- ✅ **Full RFC 6350 compliance**: Uses the battle-tested `ecard.el` library
 - ✅ **org-contacts compatible**: Works with existing org-contacts.el configurations
 - ✅ **Bidirectional**: Import and export work seamlessly
 - ✅ **Well-tested**: 72 comprehensive tests ensure reliability
@@ -52,7 +52,7 @@ Bidirectional conversion between Org-mode contact entries and vCard 4.0 format.
 
 ```elisp
 (require 'org)
-(require 'vcard)  ; From this package
+(require 'ecard)  ; From this package
 ```
 
 ### Manual Installation
@@ -60,19 +60,19 @@ Bidirectional conversion between Org-mode contact entries and vCard 4.0 format.
 Add to your `init.el` or `.emacs`:
 
 ```elisp
-(add-to-list 'load-path "/path/to/emacs-vcard")
-(require 'vcard-org)
+(add-to-list 'load-path "/path/to/emacs-ecard")
+(require 'ecard-org)
 ```
 
 ### Using use-package
 
 ```elisp
-(use-package vcard-org
-  :load-path "/path/to/emacs-vcard"
+(use-package ecard-org
+  :load-path "/path/to/emacs-ecard"
   :after org
   :config
-  (setq vcard-org-require-vcard-property nil)  ; Optional: auto-detect contacts
-  (setq vcard-org-import-unmapped-properties t)) ; Optional: keep all properties
+  (setq ecard-org-require-ecard-property nil)  ; Optional: auto-detect contacts
+  (setq ecard-org-import-unmapped-properties t)) ; Optional: keep all properties
 ```
 
 ---
@@ -104,7 +104,7 @@ Add to your `init.el` or `.emacs`:
 2. Export to vCard:
 
 ```
-M-x vcard-org-export-buffer RET contacts.vcf RET
+M-x ecard-org-export-buffer RET contacts.vcf RET
 ```
 
 3. Import the .vcf file into your phone, email client, or other application!
@@ -116,7 +116,7 @@ M-x vcard-org-export-buffer RET contacts.vcf RET
 2. Import into Org:
 
 ```
-M-x vcard-org-import-file RET contacts.vcf RET
+M-x ecard-org-import-file RET contacts.vcf RET
 ```
 
 3. Contacts are added to your current buffer as Org entries!
@@ -130,7 +130,7 @@ M-x vcard-org-import-file RET contacts.vcf RET
 ```org
 * Contact Name (becomes FN in vCard)
 :PROPERTIES:
-:VCARD: t               ← Marker (optional if vcard-org-require-vcard-property is nil)
+:VCARD: t               ← Marker (optional if ecard-org-require-ecard-property is nil)
 :EMAIL: contact@example.com
 :MOBILE: +1-555-1234
 :ORG: Company Name
@@ -218,10 +218,10 @@ Example: `Bob,Bobby,Rob`
 ### Adding Custom Mappings
 
 ```elisp
-(add-to-list 'vcard-org-property-mappings
+(add-to-list 'ecard-org-property-mappings
              '("SPOUSE" x-spouse nil))
 
-(add-to-list 'vcard-org-property-mappings
+(add-to-list 'ecard-org-property-mappings
              '("ASSISTANT_PHONE" tel (("TYPE" . "work,voice") ("X-ASSISTANT" . "true"))))
 ```
 
@@ -231,23 +231,23 @@ Example: `Bob,Bobby,Rob`
 
 ### Export Commands
 
-#### `vcard-org-export-buffer`
+#### `ecard-org-export-buffer`
 **Keybinding:** None (assign as needed)
-**Usage:** `M-x vcard-org-export-buffer RET filename.vcf RET`
+**Usage:** `M-x ecard-org-export-buffer RET filename.vcf RET`
 
 Exports all contacts in the current buffer to a .vcf file.
 
 **Options:**
-- Respects `vcard-org-require-vcard-property` (explicit vs. auto-detect)
-- Supports unmapped property export via `vcard-org-export-unknown-properties`
+- Respects `ecard-org-require-ecard-property` (explicit vs. auto-detect)
+- Supports unmapped property export via `ecard-org-export-unknown-properties`
 
 **Example:**
 ```elisp
-(vcard-org-export-buffer "~/contacts/org-contacts.vcf")
+(ecard-org-export-buffer "~/contacts/org-contacts.vcf")
 ```
 
-#### `vcard-org-export-region`
-**Usage:** `C-u M-x vcard-org-export-region RET filename.vcf RET`
+#### `ecard-org-export-region`
+**Usage:** `C-u M-x ecard-org-export-region RET filename.vcf RET`
 
 Exports contacts in the active region to a .vcf file.
 
@@ -255,8 +255,8 @@ Exports contacts in the active region to a .vcf file.
 - Active region must be set
 - Works with any heading level
 
-#### `vcard-org-export-subtree`
-**Usage:** `M-x vcard-org-export-subtree RET filename.vcf RET`
+#### `ecard-org-export-subtree`
+**Usage:** `M-x ecard-org-export-subtree RET filename.vcf RET`
 
 Exports all contacts in the current subtree (from point) to a .vcf file.
 
@@ -264,35 +264,35 @@ Exports all contacts in the current subtree (from point) to a .vcf file.
 
 ### Import Commands
 
-#### `vcard-org-import-file`
-**Usage:** `M-x vcard-org-import-file RET filename.vcf RET`
+#### `ecard-org-import-file`
+**Usage:** `M-x ecard-org-import-file RET filename.vcf RET`
 
 Imports all vCards from a file into the current buffer at point.
 
 **Options:**
-- Prefix argument sets heading level: `C-u 2 M-x vcard-org-import-file` for level 2
+- Prefix argument sets heading level: `C-u 2 M-x ecard-org-import-file` for level 2
 - Default: Level 1 headings
-- Respects `vcard-org-auto-mark-contacts` (adds `:VCARD: t` property)
+- Respects `ecard-org-auto-mark-contacts` (adds `:VCARD: t` property)
 
 **Example:**
 ```elisp
 ;; Import as level 2 headings under current heading
-(vcard-org-import-file "~/Downloads/contacts.vcf" 2)
+(ecard-org-import-file "~/Downloads/contacts.vcf" 2)
 ```
 
-#### `vcard-org-import-buffer`
-**Usage:** `M-x vcard-org-import-buffer RET`
+#### `ecard-org-import-buffer`
+**Usage:** `M-x ecard-org-import-buffer RET`
 
 Imports vCards from another buffer into current buffer.
 
 **Workflow:**
 1. Open .vcf file in a buffer
 2. Switch to Org buffer
-3. `M-x vcard-org-import-buffer`
+3. `M-x ecard-org-import-buffer`
 4. Select source buffer
 
-#### `vcard-org-import-region`
-**Usage:** Select region in vCard buffer, then `M-x vcard-org-import-region`
+#### `ecard-org-import-region`
+**Usage:** Select region in vCard buffer, then `M-x ecard-org-import-region`
 
 Imports vCards from selected region of a vCard buffer.
 
@@ -304,98 +304,98 @@ Imports vCards from selected region of a vCard buffer.
 
 ### Core Conversion Functions
 
-#### `vcard-org-entry-to-vcard`
+#### `ecard-org-entry-to-ecard`
 ```elisp
-(defun vcard-org-entry-to-vcard () → vcard-object or nil)
+(defun ecard-org-entry-to-ecard () → ecard-object or nil)
 ```
 
-Converts the Org entry at point to a vcard object.
+Converts the Org entry at point to a ecard object.
 
-**Returns:** vcard object if entry is a contact, nil otherwise
+**Returns:** ecard object if entry is a contact, nil otherwise
 
 **Example:**
 ```elisp
 (save-excursion
   (org-goto-first-heading)
-  (when-let ((vc (vcard-org-entry-to-vcard)))
-    (message "Contact: %s" (vcard-get-property-value vc 'fn))))
+  (when-let ((vc (ecard-org-entry-to-ecard)))
+    (message "Contact: %s" (ecard-get-property-value vc 'fn))))
 ```
 
-#### `vcard-org-vcard-to-entry`
+#### `ecard-org-ecard-to-entry`
 ```elisp
-(defun vcard-org-vcard-to-entry (vcard &optional level) → string)
+(defun ecard-org-ecard-to-entry (ecard &optional level) → string)
 ```
 
-Converts a vcard object to an Org entry string.
+Converts a ecard object to an Org entry string.
 
 **Parameters:**
-- `vcard`: vcard object
+- `ecard`: ecard object
 - `level`: Heading level (default 1)
 
 **Returns:** Formatted Org entry string
 
 **Example:**
 ```elisp
-(let ((vc (vcard-create :fn "Test Person"
+(let ((vc (ecard-create :fn "Test Person"
                         :email "test@example.com"))
-      (entry (vcard-org-vcard-to-entry vc 2)))
+      (entry (ecard-org-ecard-to-entry vc 2)))
   (insert entry))
 ```
 
 ### Batch Processing Functions
 
-#### `vcard-org-buffer-to-vcards`
+#### `ecard-org-buffer-to-vcards`
 ```elisp
-(defun vcard-org-buffer-to-vcards () → list of vcard-objects)
+(defun ecard-org-buffer-to-vcards () → list of ecard-objects)
 ```
 
-Exports all contacts in buffer to list of vcard objects.
+Exports all contacts in buffer to list of ecard objects.
 
 **Example:**
 ```elisp
-(let ((vcards (vcard-org-buffer-to-vcards)))
+(let ((vcards (ecard-org-buffer-to-vcards)))
   (message "Found %d contacts" (length vcards))
   (dolist (vc vcards)
-    (message "  - %s" (vcard-get-property-value vc 'fn))))
+    (message "  - %s" (ecard-get-property-value vc 'fn))))
 ```
 
-#### `vcard-org-region-to-vcards`
+#### `ecard-org-region-to-vcards`
 ```elisp
-(defun vcard-org-region-to-vcards () → list of vcard-objects)
+(defun ecard-org-region-to-vcards () → list of ecard-objects)
 ```
 
-Exports contacts in active region to list of vcard objects.
+Exports contacts in active region to list of ecard objects.
 
 **Requires:** Active region
 
 **Example:**
 ```elisp
 (when (use-region-p)
-  (let ((vcards (vcard-org-region-to-vcards)))
+  (let ((vcards (ecard-org-region-to-vcards)))
     (with-temp-file "region-contacts.vcf"
-      (insert (vcard-serialize-multiple vcards)))))
+      (insert (ecard-serialize-multiple vcards)))))
 ```
 
-#### `vcard-org-subtree-to-vcards`
+#### `ecard-org-subtree-to-vcards`
 ```elisp
-(defun vcard-org-subtree-to-vcards () → list of vcard-objects)
+(defun ecard-org-subtree-to-vcards () → list of ecard-objects)
 ```
 
-Exports contacts in current subtree to list of vcard objects.
+Exports contacts in current subtree to list of ecard objects.
 
 **Example:**
 ```elisp
 (save-excursion
   (org-goto-heading "Work Contacts")
-  (let ((vcards (vcard-org-subtree-to-vcards)))
+  (let ((vcards (ecard-org-subtree-to-vcards)))
     (message "Work contacts: %d" (length vcards))))
 ```
 
 ### Utility Functions
 
-#### `vcard-org-validate-entry`
+#### `ecard-org-validate-entry`
 ```elisp
-(defun vcard-org-validate-entry () → (valid-p . issues-list))
+(defun ecard-org-validate-entry () → (valid-p . issues-list))
 ```
 
 Validates the Org entry at point as a contact.
@@ -406,7 +406,7 @@ Validates the Org entry at point as a contact.
 
 **Example:**
 ```elisp
-(pcase (vcard-org-validate-entry)
+(pcase (ecard-org-validate-entry)
   (`(t . ,_) (message "Entry is valid"))
   (`(nil . ,issues)
    (message "Validation issues:\n%s"
@@ -415,19 +415,19 @@ Validates the Org entry at point as a contact.
 
 **Checks:**
 - Entry has heading (FN required)
-- Entry marked as contact (if `vcard-org-require-vcard-property` is t)
+- Entry marked as contact (if `ecard-org-require-ecard-property` is t)
 - Structured properties have semicolons (ORG, ADDRESS)
 
-#### `vcard-org-count-contacts`
+#### `ecard-org-count-contacts`
 ```elisp
-(defun vcard-org-count-contacts () → integer)
+(defun ecard-org-count-contacts () → integer)
 ```
 
 Counts contacts in current buffer.
 
 **Example:**
 ```elisp
-(message "Total contacts: %d" (vcard-org-count-contacts))
+(message "Total contacts: %d" (ecard-org-count-contacts))
 ```
 
 ---
@@ -436,7 +436,7 @@ Counts contacts in current buffer.
 
 ### Configuration Variables
 
-#### `vcard-org-property-mappings`
+#### `ecard-org-property-mappings`
 **Type:** alist
 **Default:** See [Property Mappings](#property-mappings)
 
@@ -446,13 +446,13 @@ Defines mapping between Org properties and vCard properties.
 
 **Example:**
 ```elisp
-(setq vcard-org-property-mappings
+(setq ecard-org-property-mappings
       '(("EMAIL" email nil)
         ("EMAIL_WORK" email (("TYPE" . "work")))
         ("MOBILE" tel (("TYPE" . "cell")))))
 ```
 
-#### `vcard-org-require-vcard-property`
+#### `ecard-org-require-ecard-property`
 **Type:** boolean
 **Default:** `t`
 
@@ -464,10 +464,10 @@ When nil, any entry with contact-like properties is treated as a contact.
 **Example:**
 ```elisp
 ;; Auto-detect contacts (org-contacts style)
-(setq vcard-org-require-vcard-property nil)
+(setq ecard-org-require-ecard-property nil)
 ```
 
-#### `vcard-org-auto-mark-contacts`
+#### `ecard-org-auto-mark-contacts`
 **Type:** boolean
 **Default:** `t`
 
@@ -476,10 +476,10 @@ Automatically add `:VCARD: t` property when importing contacts.
 **Example:**
 ```elisp
 ;; Don't auto-mark imports
-(setq vcard-org-auto-mark-contacts nil)
+(setq ecard-org-auto-mark-contacts nil)
 ```
 
-#### `vcard-org-export-unknown-properties`
+#### `ecard-org-export-unknown-properties`
 **Type:** boolean
 **Default:** `nil`
 
@@ -490,10 +490,10 @@ Export Org properties without vCard mappings as X-ORG-* properties.
 **Example:**
 ```elisp
 ;; Future: Export custom properties
-(setq vcard-org-export-unknown-properties t)
+(setq ecard-org-export-unknown-properties t)
 ```
 
-#### `vcard-org-import-unmapped-properties`
+#### `ecard-org-import-unmapped-properties`
 **Type:** boolean
 **Default:** `t`
 
@@ -504,7 +504,7 @@ Import vCard properties without Org mappings as uppercase Org properties.
 **Example:**
 ```elisp
 ;; Only import mapped properties
-(setq vcard-org-import-unmapped-properties nil)
+(setq ecard-org-import-unmapped-properties nil)
 ```
 
 ### Customization Group
@@ -512,7 +512,7 @@ Import vCard properties without Org mappings as uppercase Org properties.
 Access all customization options:
 
 ```
-M-x customize-group RET vcard-org RET
+M-x customize-group RET ecard-org RET
 ```
 
 ---
@@ -528,7 +528,7 @@ M-x customize-group RET vcard-org RET
   (interactive)
   (save-excursion
     (when (search-forward "* Work Contacts" nil t)
-      (vcard-org-export-subtree "~/contacts/work.vcf"))))
+      (ecard-org-export-subtree "~/contacts/work.vcf"))))
 ```
 
 ### Example 2: Sync with Phone
@@ -539,7 +539,7 @@ M-x customize-group RET vcard-org RET
   "Export all contacts to Dropbox for phone sync."
   (interactive)
   (with-current-buffer (find-file-noselect "~/org/contacts.org")
-    (vcard-org-export-buffer "~/Dropbox/contacts.vcf"))
+    (ecard-org-export-buffer "~/Dropbox/contacts.vcf"))
   (message "Contacts synced to Dropbox"))
 ```
 
@@ -551,11 +551,11 @@ M-x customize-group RET vcard-org RET
   "Import contacts from FILE and add CATEGORY tag."
   (interactive "fImport from: \nsCategory: ")
   (let ((start (point-marker)))
-    (vcard-org-import-file file)
+    (ecard-org-import-file file)
     (save-excursion
       (goto-char start)
       (while (< (point) (point-max))
-        (when (vcard-org--is-contact-p)
+        (when (ecard-org--is-contact-p)
           (org-set-property "CATEGORIES"
                            (if-let ((cats (org-entry-get nil "CATEGORIES")))
                                (concat cats "," category)
@@ -573,12 +573,12 @@ M-x customize-group RET vcard-org RET
   (let ((vcards '()))
     (org-map-entries
      (lambda ()
-       (when-let* ((vc (vcard-org-entry-to-vcard))
-                   ((vcard-get-property-value vc 'email)))
+       (when-let* ((vc (ecard-org-entry-to-ecard))
+                   ((ecard-get-property-value vc 'email)))
          (push vc vcards))))
     (when vcards
       (with-temp-file file
-        (insert (vcard-serialize-multiple (nreverse vcards))))
+        (insert (ecard-serialize-multiple (nreverse vcards))))
       (message "Exported %d contacts with email" (length vcards)))))
 ```
 
@@ -593,9 +593,9 @@ M-x customize-group RET vcard-org RET
         (duplicates '()))
     (org-map-entries
      (lambda ()
-       (when-let* ((vc (vcard-org-entry-to-vcard))
-                   (email (vcard-get-property-value vc 'email))
-                   (fn (vcard-get-property-value vc 'fn)))
+       (when-let* ((vc (ecard-org-entry-to-ecard))
+                   (email (ecard-get-property-value vc 'email))
+                   (fn (ecard-get-property-value vc 'fn)))
          (if-let ((existing (gethash email email-hash)))
              (push (list email existing fn) duplicates)
            (puthash email fn email-hash)))))
@@ -612,7 +612,7 @@ M-x customize-group RET vcard-org RET
 
 ## org-contacts Compatibility
 
-`vcard-org.el` is designed to be compatible with org-contacts.el:
+`ecard-org.el` is designed to be compatible with org-contacts.el:
 
 ### Compatible Features
 
@@ -623,7 +623,7 @@ M-x customize-group RET vcard-org RET
 
 ### Differences
 
-| Feature | org-contacts | vcard-org |
+| Feature | org-contacts | ecard-org |
 |---------|--------------|-----------|
 | Contact Marker | Inferred from properties | Explicit `:VCARD: t` (configurable) |
 | Export Format | No built-in vCard export | Native vCard 4.0 export |
@@ -637,7 +637,7 @@ M-x customize-group RET vcard-org RET
 
 1. **Enable auto-detection:**
    ```elisp
-   (setq vcard-org-require-vcard-property nil)
+   (setq ecard-org-require-ecard-property nil)
    ```
 
 2. **Your existing contacts work as-is** - no changes needed!
@@ -647,13 +647,13 @@ M-x customize-group RET vcard-org RET
    ;; Add VCARD property to all contacts
    (org-map-entries
     (lambda ()
-      (when (vcard-org--looks-like-contact-p)
+      (when (ecard-org--looks-like-contact-p)
         (org-set-property "VCARD" "t"))))
    ```
 
-4. **Use vcard-org for export:**
+4. **Use ecard-org for export:**
    ```elisp
-   (vcard-org-export-buffer "contacts.vcf")
+   (ecard-org-export-buffer "contacts.vcf")
    ```
 
 ---
@@ -664,25 +664,25 @@ M-x customize-group RET vcard-org RET
 
 ```bash
 # Run all tests
-emacs -batch -L . -l vcard.el -l vcard-org.el -l vcard-org-test.el \\
+emacs -batch -L . -l ecard.el -l ecard-org.el -l ecard-org-test.el \\
   -f ert-run-tests-batch-and-exit
 
 # Run specific test
-emacs -batch -L . -l vcard.el -l vcard-org.el -l vcard-org-test.el \\
-  --eval "(ert-run-tests-batch-and-exit 'vcard-org-test-simple-org-to-vcard)"
+emacs -batch -L . -l ecard.el -l ecard-org.el -l ecard-org-test.el \\
+  --eval "(ert-run-tests-batch-and-exit 'ecard-org-test-simple-org-to-ecard)"
 ```
 
 ### Interactive Testing
 
 ```elisp
 ;; Load test file
-(load-file "vcard-org-test.el")
+(load-file "ecard-org-test.el")
 
 ;; Run all tests
 (ert t)
 
 ;; Run tests matching pattern
-(ert "vcard-org-test-.*conversion")
+(ert "ecard-org-test-.*conversion")
 ```
 
 ### Test Coverage
@@ -706,12 +706,12 @@ emacs -batch -L . -l vcard.el -l vcard-org.el -l vcard-org-test.el \\
 
 ### Current Implementation Limitations
 
-1. **Unknown Property Export** (`vcard-org-export-unknown-properties`)
+1. **Unknown Property Export** (`ecard-org-export-unknown-properties`)
    - **Status:** Not implemented
    - **Impact:** Org properties without mappings are not exported as X-* properties
-   - **Workaround:** Add custom mappings to `vcard-org-property-mappings`
+   - **Workaround:** Add custom mappings to `ecard-org-property-mappings`
 
-2. **Unmapped Property Import** (`vcard-org-import-unmapped-properties`)
+2. **Unmapped Property Import** (`ecard-org-import-unmapped-properties`)
    - **Status:** Not implemented
    - **Impact:** vCard properties without Org mappings are not imported
    - **Workaround:** Add custom mappings for needed properties
@@ -719,7 +719,7 @@ emacs -batch -L . -l vcard.el -l vcard-org.el -l vcard-org-test.el \\
 3. **Single vCard Import Handling**
    - **Status:** Type mismatch when importing single-contact .vcf files
    - **Impact:** Import may fail for some .vcf files with one contact
-   - **Workaround:** Use `vcard-parse-multiple` which always returns list
+   - **Workaround:** Use `ecard-parse-multiple` which always returns list
 
 4. **Reverse Mapping Ambiguity**
    - **Status:** First matching Org property is used when multiple map to same vCard slot
@@ -739,7 +739,7 @@ Planned improvements:
 - [ ] Unmapped property import with warning
 - [ ] Better reverse mapping with parameter matching
 - [ ] ADDRESS component preservation
-- [ ] Tree-style support (nested headings like org-vcard)
+- [ ] Tree-style support (nested headings like org-ecard)
 - [ ] Batch validation with auto-fix
 - [ ] Integration with org-agenda
 
@@ -757,22 +757,22 @@ Planned improvements:
 :VCARD: t
 
 ;; Option 2: Enable auto-detection
-(setq vcard-org-require-vcard-property nil)
+(setq ecard-org-require-ecard-property nil)
 ```
 
 ### Problem: Properties not exporting
 
 **Cause:** Property names don't match mappings
 
-**Solution:** Check `vcard-org-property-mappings` for exact property names (case-sensitive)
+**Solution:** Check `ecard-org-property-mappings` for exact property names (case-sensitive)
 
 ```elisp
 ;; View current mappings
-(pp vcard-org-property-mappings)
+(pp ecard-org-property-mappings)
 
 ;; Add custom mapping if needed
-(add-to-list 'vcard-org-property-mappings
-             '("YOUR_PROPERTY" your-vcard-slot nil))
+(add-to-list 'ecard-org-property-mappings
+             '("YOUR_PROPERTY" your-ecard-slot nil))
 ```
 
 ### Problem: Import fails with type error
@@ -782,10 +782,10 @@ Planned improvements:
 **Solution:** Will be fixed in future version. Current workaround:
 
 ```elisp
-;; Use vcard-parse-multiple which always returns list
-(let ((vcards (vcard-parse-file-multiple file)))
+;; Use ecard-parse-multiple which always returns list
+(let ((vcards (ecard-parse-file-multiple file)))
   (dolist (vc vcards)
-    (insert (vcard-org-vcard-to-entry vc))))
+    (insert (ecard-org-ecard-to-entry vc))))
 ```
 
 ### Problem: Special characters in values
@@ -813,12 +813,12 @@ Planned improvements:
 **Diagnostic:**
 ```elisp
 ;; Check validation issues
-M-x vcard-org-validate-entry
+M-x ecard-org-validate-entry
 ```
 
 **Common Issues:**
 - Missing heading (FN required)
-- No VCARD property (if `vcard-org-require-vcard-property` is t)
+- No VCARD property (if `ecard-org-require-ecard-property` is t)
 - Malformed structured properties
 
 ---
@@ -828,7 +828,7 @@ M-x vcard-org-validate-entry
 ### Getting Help
 
 - **Issues:** Report bugs at https://github.com/jwiegley/dot-emacs/issues
-- **Discussions:** Emacs Stack Exchange with tag `vcard`
+- **Discussions:** Emacs Stack Exchange with tag `ecard`
 
 ### Contributing
 
@@ -842,7 +842,7 @@ Contributions welcome! Areas for improvement:
 
 ### License
 
-GPL-3.0 (same as Emacs and vcard.el)
+GPL-3.0 (same as Emacs and ecard.el)
 
 ---
 

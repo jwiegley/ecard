@@ -1,4 +1,4 @@
-# vCard.el RFC 6350 Compliance Report
+# ecard.el RFC 6350 Compliance Report
 
 **Version:** 1.0.0
 **Date:** 2025-11-15
@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-The vcard.el library has undergone comprehensive RFC 6350 compliance improvements. Through deep research, exhaustive testing, and systematic fixes, the implementation now correctly handles:
+The ecard.el library has undergone comprehensive RFC 6350 compliance improvements. Through deep research, exhaustive testing, and systematic fixes, the implementation now correctly handles:
 
 - **All RFC 6350 property types** (30+ properties)
 - **All parameter types** (PREF, TYPE, ALTID, PID, LANGUAGE, MEDIATYPE, CALSCALE, SORT-AS, GEO, TZ)
@@ -30,15 +30,15 @@ The vcard.el library has undergone comprehensive RFC 6350 compliance improvement
 
 | Requirement | Status | Implementation |
 |-------------|--------|----------------|
-| **BEGIN:VCARD / END:VCARD** | ✅ Complete | vcard.el:513-528 |
-| **VERSION:4.0 (required)** | ✅ Complete | vcard.el:546-554 (validation) |
-| **FN (at least one)** | ✅ Complete | vcard.el:537-539 (validation) |
+| **BEGIN:VCARD / END:VCARD** | ✅ Complete | ecard.el:513-528 |
+| **VERSION:4.0 (required)** | ✅ Complete | ecard.el:546-554 (validation) |
+| **FN (at least one)** | ✅ Complete | ecard.el:537-539 (validation) |
 | **UTF-8 encoding** | ✅ Complete | Throughout (encode-coding-string 'utf-8') |
-| **Line folding at 75 octets** | ✅ Complete | vcard.el:446-474 |
-| **Property parameters** | ✅ Complete | vcard.el:346-381 |
-| **Value escaping** | ✅ Complete | vcard.el:316-343, 345-353 |
-| **Group syntax** | ✅ Complete | vcard.el:368 (regex captures group prefix) |
-| **Extended properties (X-*)** | ✅ Complete | vcard.el:430-438 |
+| **Line folding at 75 octets** | ✅ Complete | ecard.el:446-474 |
+| **Property parameters** | ✅ Complete | ecard.el:346-381 |
+| **Value escaping** | ✅ Complete | ecard.el:316-343, 345-353 |
+| **Group syntax** | ✅ Complete | ecard.el:368 (regex captures group prefix) |
+| **Extended properties (X-*)** | ✅ Complete | ecard.el:430-438 |
 
 ---
 
@@ -112,12 +112,12 @@ The vcard.el library has undergone comprehensive RFC 6350 compliance improvement
 
 | Property | Structure | Separator | Implementation | Status |
 |----------|-----------|-----------|----------------|--------|
-| **N** | Family;Given;Additional;Prefix;Suffix | Semicolon | vcard.el:407-410 | ✅ Complete |
-| **ADR** | PO Box;Ext;Street;Locality;Region;Code;Country | Semicolon | vcard.el:407-410 | ✅ Complete |
-| **ORG** | Organization;Unit1;Unit2;... | Semicolon | vcard.el:407-410 | ✅ Complete |
-| **GENDER** | Sex;Gender Identity | Semicolon | vcard.el:407-410 | ✅ Complete |
-| **CATEGORIES** | Category1,Category2,... | Comma | vcard.el:413-414 | ✅ Complete |
-| **NICKNAME** | Nick1,Nick2,... | Comma | vcard.el:413-414 | ✅ Complete |
+| **N** | Family;Given;Additional;Prefix;Suffix | Semicolon | ecard.el:407-410 | ✅ Complete |
+| **ADR** | PO Box;Ext;Street;Locality;Region;Code;Country | Semicolon | ecard.el:407-410 | ✅ Complete |
+| **ORG** | Organization;Unit1;Unit2;... | Semicolon | ecard.el:407-410 | ✅ Complete |
+| **GENDER** | Sex;Gender Identity | Semicolon | ecard.el:407-410 | ✅ Complete |
+| **CATEGORIES** | Category1,Category2,... | Comma | ecard.el:413-414 | ✅ Complete |
+| **NICKNAME** | Nick1,Nick2,... | Comma | ecard.el:413-414 | ✅ Complete |
 
 All structured properties correctly:
 - Parse into Emacs Lisp lists
@@ -138,7 +138,7 @@ All structured properties correctly:
 | **\*1** | At most one | N, BDAY, ANNIVERSARY, GENDER, REV, PRODID, UID, KIND | ✅ Validated |
 | **\*** | Zero or more | All others | ✅ Allowed |
 
-Implementation: `vcard--is-cardinality-one-property-p` (vcard.el:426-431) enforces *1 properties during parsing (vcard.el:459-462).
+Implementation: `vcard--is-cardinality-one-property-p` (ecard.el:426-431) enforces *1 properties during parsing (ecard.el:459-462).
 
 ---
 
@@ -146,27 +146,27 @@ Implementation: `vcard--is-cardinality-one-property-p` (vcard.el:426-431) enforc
 
 ### Implemented Validations
 
-1. **VERSION validation** (vcard.el:546-554)
+1. **VERSION validation** (ecard.el:546-554)
    - Must be exactly "4.0"
    - Signals `vcard-validation-error` for other versions
 
-2. **FN requirement** (vcard.el:537-539)
+2. **FN requirement** (ecard.el:537-539)
    - At least one FN property required
    - Signals `vcard-validation-error` if missing
 
-3. **KIND value validation** (vcard.el:556-563)
+3. **KIND value validation** (ecard.el:556-563)
    - Valid values: "individual", "group", "org", "location" (case-insensitive)
    - Signals `vcard-validation-error` for invalid values
 
-4. **MEMBER/KIND relationship** (vcard.el:565-572)
+4. **MEMBER/KIND relationship** (ecard.el:565-572)
    - MEMBER only allowed when KIND=group
    - Signals `vcard-validation-error` otherwise
 
-5. **PREF parameter range** (vcard.el:528-552)
+5. **PREF parameter range** (ecard.el:528-552)
    - Must be integer 1-100
    - Signals `vcard-validation-error` for out-of-range values
 
-6. **Cardinality enforcement** (vcard.el:459-462)
+6. **Cardinality enforcement** (ecard.el:459-462)
    - *1 properties limited to one instance
    - Signals `vcard-validation-error` for duplicates
 
@@ -193,7 +193,7 @@ All errors use proper Emacs error conditions:
 - Proper error handling for partial failures
 - iOS/Android compatibility considerations documented
 
-**Test Coverage:** 12 tests (vcard-test.el:380-605)
+**Test Coverage:** 12 tests (ecard-test.el:380-605)
 
 ---
 
@@ -204,12 +204,12 @@ All errors use proper Emacs error conditions:
 | Feature | Requirement | Implementation | Tests |
 |---------|-------------|----------------|-------|
 | **UTF-8 encoding** | Mandatory | ✅ encode-coding-string 'utf-8 | 3 tests |
-| **\\n escape** | Newlines → \\n | ✅ vcard.el:345-353 | 1 test |
-| **\\\\ escape** | Backslash → \\\\ | ✅ vcard.el:345-353 | 1 test |
-| **\\, escape** | Comma → \\, | ✅ vcard.el:345-353 | 1 test |
-| **\\; escape** | Semicolon → \\; | ✅ vcard.el:345-353 | 1 test |
-| **Line folding** | 75 octet maximum | ✅ vcard.el:446-474 | 2 tests |
-| **Multi-byte safety** | Don't break UTF-8 chars | ✅ vcard.el:456-473 | 1 test |
+| **\\n escape** | Newlines → \\n | ✅ ecard.el:345-353 | 1 test |
+| **\\\\ escape** | Backslash → \\\\ | ✅ ecard.el:345-353 | 1 test |
+| **\\, escape** | Comma → \\, | ✅ ecard.el:345-353 | 1 test |
+| **\\; escape** | Semicolon → \\; | ✅ ecard.el:345-353 | 1 test |
+| **Line folding** | 75 octet maximum | ✅ ecard.el:446-474 | 2 tests |
+| **Multi-byte safety** | Don't break UTF-8 chars | ✅ ecard.el:456-473 | 1 test |
 | **Emoji support** | Full Unicode range | ✅ Throughout | 1 test |
 
 ---
@@ -248,8 +248,8 @@ All errors use proper Emacs error conditions:
 
 ### Code Metrics
 
-- **Implementation:** 979 lines (vcard.el)
-- **Tests:** 1,977 lines (vcard-test.el)
+- **Implementation:** 979 lines (ecard.el)
+- **Tests:** 1,977 lines (ecard-test.el)
 - **Test/Code Ratio:** 2.02:1
 - **Byte Compilation:** ✅ Zero warnings
 - **Lexical Binding:** ✅ Enabled
@@ -261,7 +261,7 @@ All errors use proper Emacs error conditions:
 ✅ **Proper naming conventions:**
 - Public API: `vcard-function-name`
 - Internal: `vcard--internal-function`
-- Predicates: `vcard-p`
+- Predicates: `ecard-p`
 
 ✅ **EIEIO object-oriented design:**
 - `vcard` class with 30+ slots
@@ -345,7 +345,7 @@ All errors use proper Emacs error conditions:
 **For iOS compatibility:**
 - Use `vcard-parse` (returns single object when one vCard)
 - Export individual vCards, not multi-vCard files
-- Documented in vcard-test.el:1942-1944
+- Documented in\1ecard-test.el:1942-1944
 
 **For Android compatibility:**
 - Use `vcard-parse-multiple` (always returns list)
@@ -367,7 +367,7 @@ All errors use proper Emacs error conditions:
 - `EMAIL;PID=1.1:test@example.com` → parsed as group="EMAIL;PID=1", name="1"
 - `ADR;GEO="geo:37.386":...` → parsed as group="ADR;GEO=\"geo:37"
 
-**Fix:** Changed to `^\\(?:\\([a-zA-Z0-9_-]+\\)\\.\\)?` (vcard.el:368)
+**Fix:** Changed to `^\\(?:\\([a-zA-Z0-9_-]+\\)\\.\\)?` (ecard.el:368)
 - Only matches valid group names (alphanumeric, underscore, hyphen)
 - Dots in parameter values now parse correctly
 
@@ -380,12 +380,12 @@ All errors use proper Emacs error conditions:
 **ORG (RFC 6350 Section 6.6.4):**
 - **Before:** `"ABC Inc;Marketing"` (string with escaped semicolon)
 - **After:** `("ABC Inc" "Marketing")` (list of strings)
-- **Fix:** Added ORG to structured property check (vcard.el:407-410)
+- **Fix:** Added ORG to structured property check (ecard.el:407-410)
 
 **GENDER (RFC 6350 Section 6.2.7):**
 - **Before:** `"M;Male"` (string)
 - **After:** `("M" "Male")` (list)
-- **Fix:** Added GENDER to structured property check (vcard.el:407-410)
+- **Fix:** Added GENDER to structured property check (ecard.el:407-410)
 
 ---
 
@@ -394,12 +394,12 @@ All errors use proper Emacs error conditions:
 **CATEGORIES (RFC 6350 Section 6.7.1):**
 - **Before:** `"work,colleagues,friends"` (string)
 - **After:** `("work" "colleagues" "friends")` (list)
-- **Fix:** Added text-list splitting (vcard.el:316-343, 413-414)
+- **Fix:** Added text-list splitting (ecard.el:316-343, 413-414)
 
 **NICKNAME (RFC 6350 Section 6.2.3):**
 - **Before:** `"Bob,Bobby,Rob"` (string)
 - **After:** `("Bob" "Bobby" "Rob")` (list)
-- **Fix:** Added text-list splitting (vcard.el:316-343, 413-414)
+- **Fix:** Added text-list splitting (ecard.el:316-343, 413-414)
 
 **Implementation:** `vcard--split-text-list` splits on unescaped commas only
 
@@ -412,7 +412,7 @@ All errors use proper Emacs error conditions:
 **Before:** Parser accepted multiple instances
 **After:** Signals `vcard-validation-error` on duplicates
 
-**Fix:** Added `vcard--is-cardinality-one-property-p` and enforcement (vcard.el:426-431, 459-462)
+**Fix:** Added `vcard--is-cardinality-one-property-p` and enforcement (ecard.el:426-431, 459-462)
 
 ---
 
@@ -421,12 +421,12 @@ All errors use proper Emacs error conditions:
 **KIND validation:**
 - Valid values: "individual", "group", "org", "location" (case-insensitive)
 - Signals error for invalid values
-- **Fix:** vcard.el:556-563
+- **Fix:** ecard.el:556-563
 
 **MEMBER/KIND relationship:**
 - MEMBER only allowed when KIND=group
 - Signals error otherwise
-- **Fix:** vcard.el:565-572
+- **Fix:** ecard.el:565-572
 
 ---
 
@@ -437,15 +437,15 @@ All errors use proper Emacs error conditions:
 **Before:** Accepted PREF=0, PREF=101, PREF=-1
 **After:** Signals `vcard-validation-error` for out-of-range
 
-**Fix:** `vcard--validate-pref-parameters` function (vcard.el:528-552)
+**Fix:** `vcard--validate-pref-parameters` function (ecard.el:528-552)
 
 ---
 
-### 7. vcard-create Enhancement
+### 7.\1ecard-create Enhancement
 
 **Problem:** `vcard-create` treated ORG/GENDER as plain text, but parser now returns lists
 
-**Fix:** Convert string arguments to lists (vcard.el:850-858)
+**Fix:** Convert string arguments to lists (ecard.el:850-858)
 - `vcard-create :org "Tech Inc"` → `ORG` property value = `("Tech Inc")`
 - `vcard-create :gender "F"` → `GENDER` property value = `("F")`
 
@@ -483,12 +483,12 @@ All errors use proper Emacs error conditions:
 
 ```elisp
 ;; Simple contact
-(vcard-create :fn "John Doe"
+(ecard-create :fn "John Doe"
               :email "john@example.com"
               :tel "+1-555-1234")
 
 ;; Complex contact with structured properties
-(vcard-create :fn "Jane Smith"
+(ecard-create :fn "Jane Smith"
               :n '("Smith" "Jane" "Marie" "Dr." "PhD")
               :org '("Acme Corp" "R&D Department")
               :gender '("F" "Female")
@@ -500,48 +500,48 @@ All errors use proper Emacs error conditions:
 
 ```elisp
 ;; Parse single vCard
-(let ((vc (vcard-parse-file "contact.vcf")))
-  (vcard-get-property-value vc 'fn))  ; => "John Doe"
+(let ((vc (ecard-parse-file "contact.vcf")))
+  (ecard-get-property-value vc 'fn))  ; => "John Doe"
 
 ;; Parse multiple vCards (always returns list)
-(let ((contacts (vcard-parse-file-multiple "contacts.vcf")))
+(let ((contacts (ecard-parse-file-multiple "contacts.vcf")))
   (length contacts))  ; => 100
 
 ;; Parse with explicit list handling
-(let ((result (vcard-parse-file "unknown.vcf")))
+(let ((result (ecard-parse-file "unknown.vcf")))
   (if (listp result)
       (message "Found %d contacts" (length result))
-    (message "Found 1 contact: %s" (vcard-get-property-value result 'fn))))
+    (message "Found 1 contact: %s" (ecard-get-property-value result 'fn))))
 ```
 
 ### Accessing Properties
 
 ```elisp
 ;; Get first value
-(vcard-get-property-value vc 'email)  ; => "john@example.com"
+(ecard-get-property-value vc 'email)  ; => "john@example.com"
 
 ;; Get all values
-(vcard-get-property-values vc 'email)  ; => ("john@work.com" "john@home.com")
+(ecard-get-property-values vc 'email)  ; => ("john@work.com" "john@home.com")
 
 ;; Get structured property
-(vcard-get-property-value vc 'n)  ; => ("Doe" "John" "Q." "Mr." "Jr.")
-(car (vcard-get-property-value vc 'n))  ; => "Doe" (family name)
+(ecard-get-property-value vc 'n)  ; => ("Doe" "John" "Q." "Mr." "Jr.")
+(car (ecard-get-property-value vc 'n))  ; => "Doe" (family name)
 
 ;; Get text-list property
-(vcard-get-property-value vc 'categories)  ; => ("work" "friends" "family")
+(ecard-get-property-value vc 'categories)  ; => ("work" "friends" "family")
 ```
 
 ### Modifying vCards
 
 ```elisp
 ;; Replace property (removes all existing)
-(vcard-set-property vc 'tel "+1-555-9999")
+(ecard-set-property vc 'tel "+1-555-9999")
 
 ;; Add property (appends to existing)
-(vcard-add-property vc 'email "new@example.com" '(("TYPE" . "work")))
+(ecard-add-property vc 'email "new@example.com" '(("TYPE" . "work")))
 
 ;; Add with parameters
-(vcard-add-property vc 'tel "+1-555-8888"
+(ecard-add-property vc 'tel "+1-555-8888"
                     '(("TYPE" . "cell") ("PREF" . "1")))
 ```
 
@@ -549,13 +549,13 @@ All errors use proper Emacs error conditions:
 
 ```elisp
 ;; Serialize single vCard
-(vcard-serialize vc)  ; => "BEGIN:VCARD\r\nVERSION:4.0\r\n..."
+(ecard-serialize vc)  ; => "BEGIN:VCARD\r\nVERSION:4.0\r\n..."
 
 ;; Write to file
-(vcard-write-file vc "~/contact.vcf")
+(ecard-write-file vc "~/contact.vcf")
 
 ;; Serialize multiple vCards
-(vcard-serialize-multiple (list vc1 vc2 vc3))
+(ecard-serialize-multiple (list vc1 vc2 vc3))
 ```
 
 ---
@@ -597,7 +597,7 @@ All errors use proper Emacs error conditions:
 
 ## Conclusion
 
-The vcard.el library now provides **comprehensive RFC 6350 vCard 4.0 support** with:
+The ecard.el library now provides **comprehensive RFC 6350 vCard 4.0 support** with:
 
 ✅ **100% test pass rate** (106/106 tests)
 ✅ **All RFC 6350 properties** supported
@@ -625,4 +625,4 @@ The implementation is **production-ready** with:
 **Report generated:** 2025-11-15 22:23:00 PST
 **By:** Claude Code with Ultrathink (Anthropic)
 **For:** John Wiegley's dot-emacs repository
-**vCard.el version:** 1.0.0
+**ecard.el version:** 1.0.0

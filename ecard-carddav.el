@@ -1,11 +1,11 @@
-;;; vcard-carddav.el --- CardDAV protocol implementation -*- lexical-binding: t; -*-
+;;; ecard-carddav.el --- CardDAV protocol implementation -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2025 John Wiegley
 
 ;; Author: John Wiegley <johnw@gnu.org>
 ;; Version: 1.0.0
 ;; Package-Requires: ((emacs "27.1"))
-;; Keywords: comm, data, carddav, vcard
+;; Keywords: comm, data, carddav, ecard
 ;; URL: https://github.com/jwiegley/dot-emacs
 
 ;;; Commentary:
@@ -26,26 +26,26 @@
 ;; Example usage:
 ;;
 ;;   ;; Connect to CardDAV server
-;;   (setq server (vcard-carddav-server-create
+;;   (setq server (ecard-carddav-server-create
 ;;                 :url "https://carddav.example.com"
-;;                 :auth (vcard-carddav-auth-basic-create
+;;                 :auth (ecard-carddav-auth-basic-create
 ;;                        :username "user"
 ;;                        :password "secret")))
 ;;
 ;;   ;; Discover address books
-;;   (vcard-carddav-discover-addressbooks server)
+;;   (ecard-carddav-discover-addressbooks server)
 ;;
 ;;   ;; List contacts in address book
-;;   (vcard-carddav-list-resources addressbook)
+;;   (ecard-carddav-list-resources addressbook)
 ;;
 ;;   ;; Get a contact
-;;   (vcard-carddav-get-vcard addressbook "/contacts/john.vcf")
+;;   (ecard-carddav-get-ecard addressbook "/contacts/john.vcf")
 ;;
 ;;   ;; Create/update contact
-;;   (vcard-carddav-put-vcard addressbook "/contacts/jane.vcf" vcard-obj)
+;;   (ecard-carddav-put-ecard addressbook "/contacts/jane.vcf" ecard-obj)
 ;;
 ;;   ;; Delete contact
-;;   (vcard-carddav-delete-resource addressbook "/contacts/old.vcf")
+;;   (ecard-carddav-delete-resource addressbook "/contacts/old.vcf")
 
 ;;; Code:
 
@@ -55,47 +55,47 @@
 (require 'url-http)
 (require 'dom)
 (require 'xml)
-(require 'vcard)
-(require 'vcard-carddav-auth)
+(require 'ecard)
+(require 'ecard-carddav-auth)
 
 ;;; Custom group
 
-(defgroup vcard-carddav nil
+(defgroup ecard-carddav nil
   "CardDAV protocol implementation."
-  :group 'vcard
-  :prefix "vcard-carddav-")
+  :group 'ecard
+  :prefix "ecard-carddav-")
 
-(defcustom vcard-carddav-timeout 30
+(defcustom ecard-carddav-timeout 30
   "Timeout in seconds for CardDAV HTTP requests."
   :type 'integer
-  :group 'vcard-carddav)
+  :group 'ecard-carddav)
 
-(defcustom vcard-carddav-max-retries 3
+(defcustom ecard-carddav-max-retries 3
   "Maximum number of retries for failed requests."
   :type 'integer
-  :group 'vcard-carddav)
+  :group 'ecard-carddav)
 
-(defcustom vcard-carddav-retry-delay 1.0
+(defcustom ecard-carddav-retry-delay 1.0
   "Initial retry delay in seconds (exponential backoff)."
   :type 'float
-  :group 'vcard-carddav)
+  :group 'ecard-carddav)
 
-(defcustom vcard-carddav-user-agent "Emacs vCard-CardDAV/1.0"
+(defcustom ecard-carddav-user-agent "Emacs vCard-CardDAV/1.0"
   "User-Agent string for CardDAV requests."
   :type 'string
-  :group 'vcard-carddav)
+  :group 'ecard-carddav)
 
 ;;; Error conditions
 
-(define-error 'vcard-carddav-error "CardDAV error")
-(define-error 'vcard-carddav-http-error "CardDAV HTTP error" 'vcard-carddav-error)
-(define-error 'vcard-carddav-xml-error "CardDAV XML error" 'vcard-carddav-error)
-(define-error 'vcard-carddav-conflict-error "CardDAV conflict error" 'vcard-carddav-error)
-(define-error 'vcard-carddav-not-found-error "CardDAV not found error" 'vcard-carddav-error)
+(define-error 'ecard-carddav-error "CardDAV error")
+(define-error 'ecard-carddav-http-error "CardDAV HTTP error" 'ecard-carddav-error)
+(define-error 'ecard-carddav-xml-error "CardDAV XML error" 'ecard-carddav-error)
+(define-error 'ecard-carddav-conflict-error "CardDAV conflict error" 'ecard-carddav-error)
+(define-error 'ecard-carddav-not-found-error "CardDAV not found error" 'ecard-carddav-error)
 
 ;;; EIEIO Classes
 
-(defclass vcard-carddav-server ()
+(defclass ecard-carddav-server ()
   ((url
     :initarg :url
     :initform nil
@@ -104,7 +104,7 @@
    (auth
     :initarg :auth
     :initform nil
-    :type (or null vcard-carddav-auth)
+    :type (or null ecard-carddav-auth)
     :documentation "Authentication credentials object.")
    (principal-url
     :initarg :principal-url
@@ -123,11 +123,11 @@
     :documentation "List of addressbook objects on this server."))
   "Represents a CardDAV server connection.")
 
-(defclass vcard-carddav-addressbook ()
+(defclass ecard-carddav-addressbook ()
   ((server
     :initarg :server
     :initform nil
-    :type (or null vcard-carddav-server)
+    :type (or null ecard-carddav-server)
     :documentation "Reference to parent server object.")
    (url
     :initarg :url
@@ -161,11 +161,11 @@
     :documentation "List of resource objects in this address book."))
   "Represents a CardDAV address book collection.")
 
-(defclass vcard-carddav-resource ()
+(defclass ecard-carddav-resource ()
   ((addressbook
     :initarg :addressbook
     :initform nil
-    :type (or null vcard-carddav-addressbook)
+    :type (or null ecard-carddav-addressbook)
     :documentation "Reference to parent address book object.")
    (url
     :initarg :url
@@ -182,13 +182,13 @@
     :initform nil
     :type (or null string)
     :documentation "ETag for concurrency control.")
-   (vcard
-    :initarg :vcard
+   (ecard
+    :initarg :ecard
     :initform nil
-    :type (or null vcard)
-    :documentation "Parsed vcard object (nil if not yet fetched).")
-   (vcard-data
-    :initarg :vcard-data
+    :type (or null ecard)
+    :documentation "Parsed ecard object (nil if not yet fetched).")
+   (ecard-data
+    :initarg :ecard-data
     :initform nil
     :type (or null string)
     :documentation "Raw vCard text data."))
@@ -196,18 +196,18 @@
 
 ;;; XML namespace constants
 
-(defconst vcard-carddav-ns-dav "DAV:"
+(defconst ecard-carddav-ns-dav "DAV:"
   "WebDAV namespace URI.")
 
-(defconst vcard-carddav-ns-carddav "urn:ietf:params:xml:ns:carddav"
+(defconst ecard-carddav-ns-carddav "urn:ietf:params:xml:ns:carddav"
   "CardDAV namespace URI.")
 
-(defconst vcard-carddav-ns-cs "http://calendarserver.org/ns/"
+(defconst ecard-carddav-ns-cs "http://calendarserver.org/ns/"
   "CalendarServer namespace URI.")
 
 ;;; XML generation helpers
 
-(defun vcard-carddav--xml-to-string (xml)
+(defun ecard-carddav--xml-to-string (xml)
   "Convert XML s-expression to string.
 XML is in the format returned by `xml-parse-region'."
   (with-temp-buffer
@@ -215,7 +215,7 @@ XML is in the format returned by `xml-parse-region'."
     (xml-print (list xml))
     (buffer-string)))
 
-(defun vcard-carddav--make-xml-element (name _namespace attrs &rest children)
+(defun ecard-carddav--make-xml-element (name _namespace attrs &rest children)
   "Create XML element with NAME with ATTRS and CHILDREN.
 NAMESPACE argument is ignored - use namespace prefixes in attrs instead.
 Returns s-expression suitable for `xml-print'."
@@ -224,7 +224,7 @@ Returns s-expression suitable for `xml-print'."
         `(,tag ,attrs ,@children)
       `(,tag ,attrs))))
 
-(defun vcard-carddav--dom-by-tag-qname (dom tag &optional namespace)
+(defun ecard-carddav--dom-by-tag-qname (dom tag &optional namespace)
   "Find elements in DOM by TAG, handling both plain and QName symbols.
 If NAMESPACE is provided, also searches for {NAMESPACE}TAG and C:TAG formats.
 Returns list of matching nodes."
@@ -234,9 +234,9 @@ Returns list of matching nodes."
                       (intern (format "{%s}%s" namespace tag-str))))
          (prefix-tags (when namespace
                         (cond
-                         ((string= namespace vcard-carddav-ns-carddav)
+                         ((string= namespace ecard-carddav-ns-carddav)
                           (list (intern (concat "C:" tag-str))))
-                         ((string= namespace vcard-carddav-ns-cs)
+                         ((string= namespace ecard-carddav-ns-cs)
                           (list (intern (concat "CS:" tag-str))))
                          (t nil)))))
     (append (dom-by-tag dom plain-tag)
@@ -244,23 +244,23 @@ Returns list of matching nodes."
               (dom-by-tag dom qname-tag))
             (mapcan (lambda (ptag) (dom-by-tag dom ptag)) prefix-tags))))
 
-(defun vcard-carddav--propfind-body (props)
+(defun ecard-carddav--propfind-body (props)
   "Create PROPFIND request body requesting PROPS.
 PROPS is list of (name . namespace) pairs."
   (with-temp-buffer
     (insert "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
     (insert (format "<propfind xmlns=\"%s\" xmlns:C=\"%s\" xmlns:CS=\"%s\">\n"
-                   vcard-carddav-ns-dav
-                   vcard-carddav-ns-carddav
-                   vcard-carddav-ns-cs))
+                   ecard-carddav-ns-dav
+                   ecard-carddav-ns-carddav
+                   ecard-carddav-ns-cs))
     (insert "  <prop>\n")
     (dolist (prop props)
       (let ((name (car prop))
             (ns (cdr prop)))
         (cond
-         ((string= ns vcard-carddav-ns-carddav)
+         ((string= ns ecard-carddav-ns-carddav)
           (insert (format "    <C:%s/>\n" name)))
-         ((string= ns vcard-carddav-ns-cs)
+         ((string= ns ecard-carddav-ns-cs)
           (insert (format "    <CS:%s/>\n" name)))
          (t
           (insert (format "    <%s/>\n" name))))))
@@ -270,7 +270,7 @@ PROPS is list of (name . namespace) pairs."
 
 ;;; HTTP request helpers
 
-(defun vcard-carddav--parse-xml-response (buffer)
+(defun ecard-carddav--parse-xml-response (buffer)
   "Parse XML from BUFFER.
 Returns parsed XML s-expression or signals error."
   (with-current-buffer buffer
@@ -280,10 +280,10 @@ Returns parsed XML s-expression or signals error."
       (condition-case err
           (car (xml-parse-region (point) (point-max)))
         (error
-         (signal 'vcard-carddav-xml-error
+         (signal 'ecard-carddav-xml-error
                  (list "Failed to parse XML response" err)))))))
 
-(defun vcard-carddav--get-http-status (buffer)
+(defun ecard-carddav--get-http-status (buffer)
   "Extract HTTP status code from BUFFER.
 Returns integer status code or nil."
   (with-current-buffer buffer
@@ -291,7 +291,7 @@ Returns integer status code or nil."
     (when (re-search-forward "^HTTP/[0-9.]+ \\([0-9]+\\)" nil t)
       (string-to-number (match-string 1)))))
 
-(defun vcard-carddav--get-http-header (buffer header-name)
+(defun ecard-carddav--get-http-header (buffer header-name)
   "Extract HTTP header HEADER-NAME from BUFFER.
 Returns header value or nil."
   (with-current-buffer buffer
@@ -301,7 +301,7 @@ Returns header value or nil."
            nil t)
       (match-string 1))))
 
-(defun vcard-carddav--request (method url auth &optional body content-type headers)
+(defun ecard-carddav--request (method url auth &optional body content-type headers)
   "Make HTTP request with METHOD to URL using AUTH.
 BODY is optional request body string.
 CONTENT-TYPE is optional Content-Type header.
@@ -310,84 +310,84 @@ Returns response buffer."
   (let* ((url-request-method method)
          (url-request-extra-headers
           (append
-           (list (cons "User-Agent" vcard-carddav-user-agent))
+           (list (cons "User-Agent" ecard-carddav-user-agent))
            (when auth
-             (list (cons "Authorization" (vcard-carddav-auth-get-header auth))))
+             (list (cons "Authorization" (ecard-carddav-auth-get-header auth))))
            (when content-type
              (list (cons "Content-Type" content-type)))
            headers))
          (url-request-data (when body (encode-coding-string body 'utf-8)))
          (url-http-attempt-keepalives nil)  ; Avoid connection reuse issues
          (url-show-status nil))
-    (url-retrieve-synchronously url t nil vcard-carddav-timeout)))
+    (url-retrieve-synchronously url t nil ecard-carddav-timeout)))
 
-(defun vcard-carddav--request-with-retry (method url auth &optional body content-type headers)
+(defun ecard-carddav--request-with-retry (method url auth &optional body content-type headers)
   "Make HTTP request with automatic retry on failure.
 Uses exponential backoff strategy.
 Returns response buffer or signals error."
   (let ((retries 0)
-        (delay vcard-carddav-retry-delay)
+        (delay ecard-carddav-retry-delay)
         (buffer nil)
         (last-error nil))
-    (while (and (< retries vcard-carddav-max-retries)
+    (while (and (< retries ecard-carddav-max-retries)
                 (not buffer))
       (condition-case err
           (progn
-            (setq buffer (vcard-carddav--request method url auth body content-type headers))
+            (setq buffer (ecard-carddav--request method url auth body content-type headers))
             ;; Check for server errors that should be retried
-            (let ((status (vcard-carddav--get-http-status buffer)))
+            (let ((status (ecard-carddav--get-http-status buffer)))
               (when (and status (>= status 500) (< status 600))
                 (kill-buffer buffer)
                 (setq buffer nil)
                 (setq last-error (list 'http-error status))
                 (setq retries (1+ retries))
-                (when (< retries vcard-carddav-max-retries)
+                (when (< retries ecard-carddav-max-retries)
                   (sleep-for delay)
                   (setq delay (* delay 2))))))
         (error
          (setq last-error err)
          (setq retries (1+ retries))
-         (when (< retries vcard-carddav-max-retries)
+         (when (< retries ecard-carddav-max-retries)
            (sleep-for delay)
            (setq delay (* delay 2))))))
     (unless buffer
-      (signal 'vcard-carddav-http-error
+      (signal 'ecard-carddav-http-error
               (list "Request failed after retries" last-error)))
     buffer))
 
 ;;; Service discovery
 
-(defun vcard-carddav-discover-principal (server)
+(defun ecard-carddav-discover-principal (server)
   "Discover principal URL for SERVER.
 Updates SERVER object with principal-url.
 Returns SERVER."
   (let* ((url (oref server url))
          (auth (oref server auth))
          (well-known-url (concat url "/.well-known/carddav"))
-         (buffer (vcard-carddav--request-with-retry "PROPFIND" well-known-url auth
-                                                     (vcard-carddav--propfind-body
-                                                      `(("current-user-principal" . ,vcard-carddav-ns-dav)))
+         (buffer (ecard-carddav--request-with-retry "PROPFIND" well-known-url auth
+                                                     (ecard-carddav--propfind-body
+                                                      `(("current-user-principal" . ,ecard-carddav-ns-dav)))
                                                      "application/xml; charset=utf-8"
                                                      '(("Depth" . "0")))))
     (unwind-protect
-        (let* ((status (vcard-carddav--get-http-status buffer))
+        (let* ((status (ecard-carddav--get-http-status buffer))
                (xml (when (and status (= status 207))
-                      (vcard-carddav--parse-xml-response buffer))))
+                      (ecard-carddav--parse-xml-response buffer))))
           (when xml
-            (let ((principal (vcard-carddav--extract-principal-url xml url)))
+            (let ((principal (ecard-carddav--extract-principal-url xml url)))
               (oset server principal-url principal))))
       (kill-buffer buffer))
     server))
 
-(defun vcard-carddav--extract-principal-url (xml base-url)
+(defun ecard-carddav--extract-principal-url (xml base-url)
   "Extract principal URL from PROPFIND response XML.
 BASE-URL is used to resolve relative URLs.
 Returns absolute URL string."
-  (let ((hrefs (vcard-carddav--dom-by-tag-qname xml 'current-user-principal
-                                                 vcard-carddav-ns-dav)))
+  (let ((hrefs (ecard-carddav--dom-by-tag-qname xml 'current-user-principal
+                                                 ecard-carddav-ns-dav)))
     (when hrefs
-      (let ((href-node (vcard-carddav--dom-by-tag-qname (car hrefs) 'href
-                                                          vcard-carddav-ns-dav)))
+      (let ((href-node (ecard-carddav--dom-by-tag-qname (car hrefs) 'href
+                                                          ecard-carddav-ns-dav)))
         (when href-node
           (let ((href (dom-text (car href-node))))
             ;; HREF should already be absolute or server-relative
@@ -400,42 +400,42 @@ Returns absolute URL string."
                        (url-host parsed-base)
                        href)))))))))
 
-(defun vcard-carddav-discover-addressbook-home (server)
+(defun ecard-carddav-discover-addressbook-home (server)
   "Discover addressbook-home-set URL for SERVER.
 Requires principal-url to be set.
 Updates SERVER object with addressbook-home-url.
 Returns SERVER."
   (unless (oref server principal-url)
-    (vcard-carddav-discover-principal server))
+    (ecard-carddav-discover-principal server))
   (let* ((principal-url (oref server principal-url))
          (auth (oref server auth)))
     (unless principal-url
-      (signal 'vcard-carddav-error '("Principal URL not set after discovery")))
-    (let ((buffer (vcard-carddav--request-with-retry
+      (signal 'ecard-carddav-error '("Principal URL not set after discovery")))
+    (let ((buffer (ecard-carddav--request-with-retry
                    "PROPFIND" principal-url auth
-                   (vcard-carddav--propfind-body
-                    `(("addressbook-home-set" . ,vcard-carddav-ns-carddav)))
+                   (ecard-carddav--propfind-body
+                    `(("addressbook-home-set" . ,ecard-carddav-ns-carddav)))
                    "application/xml; charset=utf-8"
                    '(("Depth" . "0")))))
       (unwind-protect
-          (let* ((status (vcard-carddav--get-http-status buffer))
+          (let* ((status (ecard-carddav--get-http-status buffer))
                  (xml (when (and status (= status 207))
-                        (vcard-carddav--parse-xml-response buffer))))
+                        (ecard-carddav--parse-xml-response buffer))))
             (when xml
-              (let ((home-url (vcard-carddav--extract-addressbook-home-url xml principal-url)))
+              (let ((home-url (ecard-carddav--extract-addressbook-home-url xml principal-url)))
                 (oset server addressbook-home-url home-url))))
         (kill-buffer buffer)))
     server))
 
-(defun vcard-carddav--extract-addressbook-home-url (xml base-url)
+(defun ecard-carddav--extract-addressbook-home-url (xml base-url)
   "Extract addressbook-home-set URL from PROPFIND response XML.
 BASE-URL is used to resolve relative URLs.
 Returns absolute URL string."
-  (let ((home-sets (vcard-carddav--dom-by-tag-qname xml 'addressbook-home-set
-                                                     vcard-carddav-ns-carddav)))
+  (let ((home-sets (ecard-carddav--dom-by-tag-qname xml 'addressbook-home-set
+                                                     ecard-carddav-ns-carddav)))
     (when home-sets
-      (let ((href-node (vcard-carddav--dom-by-tag-qname (car home-sets) 'href
-                                                          vcard-carddav-ns-dav)))
+      (let ((href-node (ecard-carddav--dom-by-tag-qname (car home-sets) 'href
+                                                          ecard-carddav-ns-dav)))
         (when href-node
           (let ((href (dom-text (car href-node))))
             ;; HREF should already be absolute or server-relative
@@ -448,70 +448,70 @@ Returns absolute URL string."
                        (url-host parsed-base)
                        href)))))))))
 
-(defun vcard-carddav-discover-addressbooks (server)
+(defun ecard-carddav-discover-addressbooks (server)
   "Discover all addressbook collections for SERVER.
 Requires addressbook-home-url to be set.
 Updates SERVER object with list of addressbook objects.
-Returns list of `vcard-carddav-addressbook' objects."
+Returns list of `ecard-carddav-addressbook' objects."
   (unless (oref server addressbook-home-url)
-    (vcard-carddav-discover-addressbook-home server))
+    (ecard-carddav-discover-addressbook-home server))
   (let* ((home-url (oref server addressbook-home-url))
          (auth (oref server auth)))
     (unless home-url
-      (signal 'vcard-carddav-error '("Addressbook home URL not set after discovery")))
-    (let ((buffer (vcard-carddav--request-with-retry
+      (signal 'ecard-carddav-error '("Addressbook home URL not set after discovery")))
+    (let ((buffer (ecard-carddav--request-with-retry
                    "PROPFIND" home-url auth
-                   (vcard-carddav--propfind-body
-                    `(("resourcetype" . ,vcard-carddav-ns-dav)
-                      ("displayname" . ,vcard-carddav-ns-dav)
-                      ("addressbook-description" . ,vcard-carddav-ns-carddav)
-                      ("getctag" . ,vcard-carddav-ns-cs)
-                      ("sync-token" . ,vcard-carddav-ns-dav)))
+                   (ecard-carddav--propfind-body
+                    `(("resourcetype" . ,ecard-carddav-ns-dav)
+                      ("displayname" . ,ecard-carddav-ns-dav)
+                      ("addressbook-description" . ,ecard-carddav-ns-carddav)
+                      ("getctag" . ,ecard-carddav-ns-cs)
+                      ("sync-token" . ,ecard-carddav-ns-dav)))
                    "application/xml; charset=utf-8"
                    '(("Depth" . "1")))))
       (unwind-protect
-          (let* ((status (vcard-carddav--get-http-status buffer))
+          (let* ((status (ecard-carddav--get-http-status buffer))
                  (xml (when (and status (= status 207))
-                        (vcard-carddav--parse-xml-response buffer)))
+                        (ecard-carddav--parse-xml-response buffer)))
                  (addressbooks (when xml
-                                (vcard-carddav--parse-addressbooks xml server home-url))))
+                                (ecard-carddav--parse-addressbooks xml server home-url))))
             (oset server addressbooks addressbooks)
             addressbooks)
         (kill-buffer buffer)))))
 
-(defun vcard-carddav--parse-addressbooks (xml server base-url)
+(defun ecard-carddav--parse-addressbooks (xml server base-url)
   "Parse addressbook collections from PROPFIND response XML.
 SERVER is the parent server object.
 BASE-URL is used to resolve relative URLs.
-Returns list of `vcard-carddav-addressbook' objects."
-  (let ((responses (vcard-carddav--dom-by-tag-qname xml 'response vcard-carddav-ns-dav))
+Returns list of `ecard-carddav-addressbook' objects."
+  (let ((responses (ecard-carddav--dom-by-tag-qname xml 'response ecard-carddav-ns-dav))
         (addressbooks nil))
     (dolist (response responses)
-      (let* ((href-node (vcard-carddav--dom-by-tag-qname response 'href vcard-carddav-ns-dav))
+      (let* ((href-node (ecard-carddav--dom-by-tag-qname response 'href ecard-carddav-ns-dav))
              (href (when href-node (dom-text (car href-node))))
-             (propstat (vcard-carddav--dom-by-tag-qname response 'propstat vcard-carddav-ns-dav))
-             (prop (when propstat (vcard-carddav--dom-by-tag-qname (car propstat) 'prop
-                                                                     vcard-carddav-ns-dav)))
-             (resourcetype (when prop (vcard-carddav--dom-by-tag-qname (car prop) 'resourcetype
-                                                                         vcard-carddav-ns-dav)))
+             (propstat (ecard-carddav--dom-by-tag-qname response 'propstat ecard-carddav-ns-dav))
+             (prop (when propstat (ecard-carddav--dom-by-tag-qname (car propstat) 'prop
+                                                                     ecard-carddav-ns-dav)))
+             (resourcetype (when prop (ecard-carddav--dom-by-tag-qname (car prop) 'resourcetype
+                                                                         ecard-carddav-ns-dav)))
              (is-addressbook (and resourcetype
-                                 (vcard-carddav--dom-by-tag-qname (car resourcetype) 'addressbook
-                                                                   vcard-carddav-ns-carddav))))
+                                 (ecard-carddav--dom-by-tag-qname (car resourcetype) 'addressbook
+                                                                   ecard-carddav-ns-carddav))))
         (when (and href is-addressbook)
-          (let* ((url (vcard-carddav--resolve-url href base-url))
-                 (displayname-node (when prop (vcard-carddav--dom-by-tag-qname (car prop) 'displayname
-                                                                                 vcard-carddav-ns-dav)))
+          (let* ((url (ecard-carddav--resolve-url href base-url))
+                 (displayname-node (when prop (ecard-carddav--dom-by-tag-qname (car prop) 'displayname
+                                                                                 ecard-carddav-ns-dav)))
                  (displayname (when displayname-node (dom-text (car displayname-node))))
-                 (desc-node (when prop (vcard-carddav--dom-by-tag-qname (car prop) 'addressbook-description
-                                                                          vcard-carddav-ns-carddav)))
+                 (desc-node (when prop (ecard-carddav--dom-by-tag-qname (car prop) 'addressbook-description
+                                                                          ecard-carddav-ns-carddav)))
                  (description (when desc-node (dom-text (car desc-node))))
-                 (ctag-node (when prop (vcard-carddav--dom-by-tag-qname (car prop) 'getctag
-                                                                          vcard-carddav-ns-cs)))
+                 (ctag-node (when prop (ecard-carddav--dom-by-tag-qname (car prop) 'getctag
+                                                                          ecard-carddav-ns-cs)))
                  (ctag (when ctag-node (dom-text (car ctag-node))))
-                 (sync-node (when prop (vcard-carddav--dom-by-tag-qname (car prop) 'sync-token
-                                                                          vcard-carddav-ns-dav)))
+                 (sync-node (when prop (ecard-carddav--dom-by-tag-qname (car prop) 'sync-token
+                                                                          ecard-carddav-ns-dav)))
                  (sync-token (when sync-node (dom-text (car sync-node)))))
-            (push (vcard-carddav-addressbook
+            (push (ecard-carddav-addressbook
                    :server server
                    :url url
                    :display-name displayname
@@ -523,7 +523,7 @@ Returns list of `vcard-carddav-addressbook' objects."
 
 ;;; URL resolution
 
-(defun vcard-carddav--resolve-url (href base-url)
+(defun ecard-carddav--resolve-url (href base-url)
   "Resolve HREF against BASE-URL.
 Returns absolute URL string."
   (if (string-prefix-p "http" href)
@@ -545,56 +545,56 @@ Returns absolute URL string."
 
 ;;; Resource operations
 
-(defun vcard-carddav-list-resources (addressbook)
+(defun ecard-carddav-list-resources (addressbook)
   "List all vCard resources in ADDRESSBOOK.
-Returns list of `vcard-carddav-resource' objects with ETags but no vCard data.
+Returns list of `ecard-carddav-resource' objects with ETags but no vCard data.
 Updates ADDRESSBOOK resources slot."
   (let* ((server (oref addressbook server))
          (auth (oref server auth))
          (url (oref addressbook url))
-         (buffer (vcard-carddav--request-with-retry
+         (buffer (ecard-carddav--request-with-retry
                   "PROPFIND" url auth
-                  (vcard-carddav--propfind-body
-                   `(("getetag" . ,vcard-carddav-ns-dav)
-                     ("getcontenttype" . ,vcard-carddav-ns-dav)))
+                  (ecard-carddav--propfind-body
+                   `(("getetag" . ,ecard-carddav-ns-dav)
+                     ("getcontenttype" . ,ecard-carddav-ns-dav)))
                   "application/xml; charset=utf-8"
                   '(("Depth" . "1")))))
     (unwind-protect
-        (let* ((status (vcard-carddav--get-http-status buffer))
+        (let* ((status (ecard-carddav--get-http-status buffer))
                (xml (when (and status (= status 207))
-                      (vcard-carddav--parse-xml-response buffer)))
+                      (ecard-carddav--parse-xml-response buffer)))
                (resources (when xml
-                           (vcard-carddav--parse-resources xml addressbook url))))
+                           (ecard-carddav--parse-resources xml addressbook url))))
           (oset addressbook resources resources)
           resources)
       (kill-buffer buffer))))
 
-(defun vcard-carddav--parse-resources (xml addressbook base-url)
+(defun ecard-carddav--parse-resources (xml addressbook base-url)
   "Parse vCard resources from PROPFIND response XML.
 ADDRESSBOOK is the parent addressbook object.
 BASE-URL is used to resolve relative URLs.
-Returns list of `vcard-carddav-resource' objects."
-  (let ((responses (vcard-carddav--dom-by-tag-qname xml 'response vcard-carddav-ns-dav))
+Returns list of `ecard-carddav-resource' objects."
+  (let ((responses (ecard-carddav--dom-by-tag-qname xml 'response ecard-carddav-ns-dav))
         (resources nil))
     (dolist (response responses)
-      (let* ((href-node (vcard-carddav--dom-by-tag-qname response 'href vcard-carddav-ns-dav))
+      (let* ((href-node (ecard-carddav--dom-by-tag-qname response 'href ecard-carddav-ns-dav))
              (href (when href-node (dom-text (car href-node))))
-             (propstat (vcard-carddav--dom-by-tag-qname response 'propstat vcard-carddav-ns-dav))
-             (prop (when propstat (vcard-carddav--dom-by-tag-qname (car propstat) 'prop
-                                                                     vcard-carddav-ns-dav)))
-             (content-type-node (when prop (vcard-carddav--dom-by-tag-qname (car prop) 'getcontenttype
-                                                                              vcard-carddav-ns-dav)))
+             (propstat (ecard-carddav--dom-by-tag-qname response 'propstat ecard-carddav-ns-dav))
+             (prop (when propstat (ecard-carddav--dom-by-tag-qname (car propstat) 'prop
+                                                                     ecard-carddav-ns-dav)))
+             (content-type-node (when prop (ecard-carddav--dom-by-tag-qname (car prop) 'getcontenttype
+                                                                              ecard-carddav-ns-dav)))
              (content-type (when content-type-node (dom-text (car content-type-node)))))
         ;; Only include vCard resources, not the addressbook itself
-        (when (and href content-type (string-match-p "text/vcard" content-type))
-          (let* ((url (vcard-carddav--resolve-url href base-url))
-                 (etag-node (when prop (vcard-carddav--dom-by-tag-qname (car prop) 'getetag
-                                                                          vcard-carddav-ns-dav)))
+        (when (and href content-type (string-match-p "text/ecard" content-type))
+          (let* ((url (ecard-carddav--resolve-url href base-url))
+                 (etag-node (when prop (ecard-carddav--dom-by-tag-qname (car prop) 'getetag
+                                                                          ecard-carddav-ns-dav)))
                  (etag (when etag-node (dom-text (car etag-node))))
                  ;; Remove quotes from ETag if present
                  (etag (when etag (string-trim etag "\"" "\"")))
                  (path (url-filename (url-generic-parse-url url))))
-            (push (vcard-carddav-resource
+            (push (ecard-carddav-resource
                    :addressbook addressbook
                    :url url
                    :path path
@@ -602,23 +602,23 @@ Returns list of `vcard-carddav-resource' objects."
                   resources)))))
     (nreverse resources)))
 
-(defun vcard-carddav-get-vcard (addressbook path-or-url)
+(defun ecard-carddav-get-ecard (addressbook path-or-url)
   "Get vCard resource at PATH-OR-URL from ADDRESSBOOK.
 PATH-OR-URL can be a full URL or a path relative to addressbook.
-Returns `vcard-carddav-resource' object with vCard data populated.
+Returns `ecard-carddav-resource' object with vCard data populated.
 Signals error if resource not found."
   (let* ((server (oref addressbook server))
          (auth (oref server auth))
          (url (if (string-prefix-p "http" path-or-url)
                   path-or-url
-                (vcard-carddav--resolve-url path-or-url (oref addressbook url))))
-         (buffer (vcard-carddav--request-with-retry "GET" url auth)))
+                (ecard-carddav--resolve-url path-or-url (oref addressbook url))))
+         (buffer (ecard-carddav--request-with-retry "GET" url auth)))
     (unwind-protect
-        (let ((status (vcard-carddav--get-http-status buffer)))
+        (let ((status (ecard-carddav--get-http-status buffer)))
           (cond
            ((= status 200)
-            (let ((etag (vcard-carddav--get-http-header buffer "ETag"))
-                  (vcard-data (with-current-buffer buffer
+            (let ((etag (ecard-carddav--get-http-header buffer "ETag"))
+                  (ecard-data (with-current-buffer buffer
                                (goto-char (point-min))
                                (when (re-search-forward "\r?\n\r?\n" nil t)
                                  (decode-coding-string
@@ -626,61 +626,61 @@ Signals error if resource not found."
                                   'utf-8)))))
               (when etag
                 (setq etag (string-trim etag "\"" "\"")))
-              (let ((vcard-obj (vcard-parse vcard-data)))
-                (vcard-carddav-resource
+              (let ((ecard-obj (ecard-parse ecard-data)))
+                (ecard-carddav-resource
                  :addressbook addressbook
                  :url url
                  :path (url-filename (url-generic-parse-url url))
                  :etag etag
-                 :vcard vcard-obj
-                 :vcard-data vcard-data))))
+                 :ecard ecard-obj
+                 :ecard-data ecard-data))))
            ((= status 404)
-            (signal 'vcard-carddav-not-found-error
+            (signal 'ecard-carddav-not-found-error
                     (list "Resource not found" url)))
            (t
-            (signal 'vcard-carddav-http-error
+            (signal 'ecard-carddav-http-error
                     (list "Failed to get resource" status url)))))
       (kill-buffer buffer))))
 
-(defun vcard-carddav-put-vcard (addressbook path-or-url vcard-obj &optional etag)
+(defun ecard-carddav-put-ecard (addressbook path-or-url ecard-obj &optional etag)
   "Create or update vCard resource at PATH-OR-URL in ADDRESSBOOK.
-VCARD-OBJ is the vcard object to store.
+VCARD-OBJ is the ecard object to store.
 ETAG is optional - if provided, uses If-Match for concurrency control.
-Returns updated `vcard-carddav-resource' object.
+Returns updated `ecard-carddav-resource' object.
 Signals conflict error if ETAG doesn't match."
   (let* ((server (oref addressbook server))
          (auth (oref server auth))
          (url (if (string-prefix-p "http" path-or-url)
                   path-or-url
-                (vcard-carddav--resolve-url path-or-url (oref addressbook url))))
-         (vcard-data (vcard-serialize vcard-obj))
+                (ecard-carddav--resolve-url path-or-url (oref addressbook url))))
+         (ecard-data (ecard-serialize ecard-obj))
          (headers (when etag
                    (list (cons "If-Match" (format "\"%s\"" etag)))))
-         (buffer (vcard-carddav--request-with-retry
-                  "PUT" url auth vcard-data "text/vcard; charset=utf-8" headers)))
+         (buffer (ecard-carddav--request-with-retry
+                  "PUT" url auth ecard-data "text/ecard; charset=utf-8" headers)))
     (unwind-protect
-        (let ((status (vcard-carddav--get-http-status buffer)))
+        (let ((status (ecard-carddav--get-http-status buffer)))
           (cond
            ((or (= status 201) (= status 204))
-            (let ((new-etag (vcard-carddav--get-http-header buffer "ETag")))
+            (let ((new-etag (ecard-carddav--get-http-header buffer "ETag")))
               (when new-etag
                 (setq new-etag (string-trim new-etag "\"" "\"")))
-              (vcard-carddav-resource
+              (ecard-carddav-resource
                :addressbook addressbook
                :url url
                :path (url-filename (url-generic-parse-url url))
                :etag new-etag
-               :vcard vcard-obj
-               :vcard-data vcard-data)))
+               :ecard ecard-obj
+               :ecard-data ecard-data)))
            ((= status 412)
-            (signal 'vcard-carddav-conflict-error
+            (signal 'ecard-carddav-conflict-error
                     (list "ETag mismatch - resource modified" url)))
            (t
-            (signal 'vcard-carddav-http-error
+            (signal 'ecard-carddav-http-error
                     (list "Failed to put resource" status url)))))
       (kill-buffer buffer))))
 
-(defun vcard-carddav-delete-resource (addressbook path-or-url &optional etag)
+(defun ecard-carddav-delete-resource (addressbook path-or-url &optional etag)
   "Delete vCard resource at PATH-OR-URL from ADDRESSBOOK.
 ETAG is optional - if provided, uses If-Match for concurrency control.
 Returns t on success.
@@ -689,30 +689,30 @@ Signals conflict error if ETAG doesn't match."
          (auth (oref server auth))
          (url (if (string-prefix-p "http" path-or-url)
                   path-or-url
-                (vcard-carddav--resolve-url path-or-url (oref addressbook url))))
+                (ecard-carddav--resolve-url path-or-url (oref addressbook url))))
          (headers (when etag
                    (list (cons "If-Match" (format "\"%s\"" etag)))))
-         (buffer (vcard-carddav--request-with-retry "DELETE" url auth nil nil headers)))
+         (buffer (ecard-carddav--request-with-retry "DELETE" url auth nil nil headers)))
     (unwind-protect
-        (let ((status (vcard-carddav--get-http-status buffer)))
+        (let ((status (ecard-carddav--get-http-status buffer)))
           (cond
            ((or (= status 204) (= status 200))
             t)
            ((= status 404)
-            (signal 'vcard-carddav-not-found-error
+            (signal 'ecard-carddav-not-found-error
                     (list "Resource not found" url)))
            ((= status 412)
-            (signal 'vcard-carddav-conflict-error
+            (signal 'ecard-carddav-conflict-error
                     (list "ETag mismatch - resource modified" url)))
            (t
-            (signal 'vcard-carddav-http-error
+            (signal 'ecard-carddav-http-error
                     (list "Failed to delete resource" status url)))))
       (kill-buffer buffer))))
 
 ;;; Server creation
 
 ;;;###autoload
-(defun vcard-carddav-server-create (&rest args)
+(defun ecard-carddav-server-create (&rest args)
   "Create CardDAV server connection from ARGS.
 
 ARGS is a plist with keys:
@@ -720,21 +720,21 @@ ARGS is a plist with keys:
   :auth AUTH-OBJ - Authentication object (required)
 
 Example:
-  (vcard-carddav-server-create
+  (ecard-carddav-server-create
    :url \"https://carddav.example.com\"
-   :auth (vcard-carddav-auth-basic-create
+   :auth (ecard-carddav-auth-basic-create
           :username \"user\"
           :password \"secret\"))"
   (let ((url (plist-get args :url))
         (auth (plist-get args :auth)))
     (unless url
-      (signal 'vcard-carddav-error '("Server URL required")))
+      (signal 'ecard-carddav-error '("Server URL required")))
     (unless auth
-      (signal 'vcard-carddav-error '("Authentication required")))
-    (vcard-carddav-auth-ensure-valid auth)
-    (vcard-carddav-server
+      (signal 'ecard-carddav-error '("Authentication required")))
+    (ecard-carddav-auth-ensure-valid auth)
+    (ecard-carddav-server
      :url url
      :auth auth)))
 
-(provide 'vcard-carddav)
-;;; vcard-carddav.el ends here
+(provide 'ecard-carddav)
+;;; ecard-carddav.el ends here

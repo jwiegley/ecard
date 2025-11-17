@@ -1,11 +1,11 @@
-;;; vcard-compat.el --- vCard 2.1/3.0 to 4.0 converter -*- lexical-binding: t; -*-
+;;; ecard-compat.el --- vCard 2.1/3.0 to 4.0 converter -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2025 John Wiegley
 
 ;; Author: John Wiegley <johnw@gnu.org>
 ;; Version: 1.0.0
 ;; Package-Requires: ((emacs "25.1"))
-;; Keywords: comm, data, vcard
+;; Keywords: comm, data, ecard
 ;; URL: https://github.com/jwiegley/dot-emacs
 
 ;;; Commentary:
@@ -19,42 +19,42 @@
 ;; - Character set conversion to UTF-8
 ;; - Property name and parameter mapping
 ;; - Multi-vCard file parsing
-;; - Clean integration with vcard.el
+;; - Clean integration with ecard.el
 ;;
 ;; Example usage:
 ;;
 ;;   ;; Parse legacy vCard (auto-detects version)
-;;   (setq card (vcard-compat-parse "BEGIN:VCARD\nVERSION:3.0\n..."))
+;;   (setq card (ecard-compat-parse "BEGIN:VCARD\nVERSION:3.0\n..."))
 ;;
 ;;   ;; Parse file with multiple vCards
-;;   (setq cards (vcard-compat-parse-file "~/contacts.vcf"))
+;;   (setq cards (ecard-compat-parse-file "~/contacts.vcf"))
 ;;
 ;;   ;; Parse specific version
-;;   (setq card (vcard-compat-parse-21 "BEGIN:VCARD\nVERSION:2.1\n..."))
-;;   (setq card (vcard-compat-parse-30 "BEGIN:VCARD\nVERSION:3.0\n..."))
+;;   (setq card (ecard-compat-parse-21 "BEGIN:VCARD\nVERSION:2.1\n..."))
+;;   (setq card (ecard-compat-parse-30 "BEGIN:VCARD\nVERSION:3.0\n..."))
 
 ;;; Code:
 
-(require 'vcard)
+(require 'ecard)
 (require 'cl-lib)
 (require 'seq)
 
 ;;; Custom group
 
-(defgroup vcard-compat nil
+(defgroup ecard-compat nil
   "Provide vCard 2.1/3.0 compatibility layer for vCard 4.0."
-  :group 'vcard
-  :prefix "vcard-compat-")
+  :group 'ecard
+  :prefix "ecard-compat-")
 
 ;;; Error conditions
 
-(define-error 'vcard-compat-error "vCard compatibility error")
-(define-error 'vcard-compat-encoding-error "vCard encoding error" 'vcard-compat-error)
-(define-error 'vcard-compat-version-error "vCard version error" 'vcard-compat-error)
+(define-error 'ecard-compat-error "vCard compatibility error")
+(define-error 'ecard-compat-encoding-error "vCard encoding error" 'ecard-compat-error)
+(define-error 'ecard-compat-version-error "vCard version error" 'ecard-compat-error)
 
 ;;; Constants
 
-(defconst vcard-compat--dropped-properties
+(defconst ecard-compat--dropped-properties
   '("LABEL" "MAILER" "CLASS" "AGENT" "NAME")
   "Properties in vCard 2.1/3.0 that don't exist in 4.0.
 These properties are silently dropped during conversion:
@@ -64,7 +64,7 @@ These properties are silently dropped during conversion:
 - AGENT: Assistant representation (deprecated)
 - NAME: Display name for SOURCE (obsolete)")
 
-(defconst vcard-compat--type-value-mapping
+(defconst ecard-compat--type-value-mapping
   '(("HOME" . "home")
     ("WORK" . "work")
     ("PREF" . "pref")
@@ -84,7 +84,7 @@ Nil values indicate the type should be dropped.")
 
 ;;; Version detection
 
-(defun vcard-compat--detect-version (text)
+(defun ecard-compat--detect-version (text)
   "Detect vCard version from TEXT.
 Returns symbol: \\='v21, \\='v30, \\='v40, or nil if unknown."
   (when (string-match "VERSION:\\s-*\\([0-9.]+\\)" text)
@@ -97,16 +97,16 @@ Returns symbol: \\='v21, \\='v30, \\='v40, or nil if unknown."
 
 ;;; Encoding functions
 
-(defun vcard-compat--decode-base64 (encoded-value)
+(defun ecard-compat--decode-base64 (encoded-value)
   "Decode BASE64 ENCODED-VALUE.
 Returns decoded string."
   (condition-case err
       (base64-decode-string encoded-value)
     (error
-     (signal 'vcard-compat-encoding-error
+     (signal 'ecard-compat-encoding-error
              (list "BASE64 decode failed" (error-message-string err))))))
 
-(defun vcard-compat--decode-quoted-printable (encoded-value &optional charset)
+(defun ecard-compat--decode-quoted-printable (encoded-value &optional charset)
   "Decode QUOTED-PRINTABLE ENCODED-VALUE with optional CHARSET.
 Returns decoded string.
 Handles soft line breaks (=\\r\\n or =\\n) and =XX hex sequences.
@@ -134,13 +134,13 @@ Performance: Uses list accumulation instead of O(n²) string concatenation."
         (let ((result (concat (nreverse chars))))
           ;; Convert from charset if specified
           (if charset
-              (vcard-compat--convert-charset result charset)
+              (ecard-compat--convert-charset result charset)
             result)))
     (error
-     (signal 'vcard-compat-encoding-error
+     (signal 'ecard-compat-encoding-error
              (list "QUOTED-PRINTABLE decode failed" (error-message-string err))))))
 
-(defun vcard-compat--decode-value (value encoding &optional charset)
+(defun ecard-compat--decode-value (value encoding &optional charset)
   "Decode VALUE with ENCODING and optional CHARSET.
 ENCODING can be \"BASE64\", \"QUOTED-PRINTABLE\", \"b\", \"B\", etc.
 Returns decoded string."
@@ -150,12 +150,12 @@ Returns decoded string."
        ((or (string= enc "BASE64") (string= enc "B"))
         ;; Remove whitespace from base64 data
         (setq value (replace-regexp-in-string "[ \t\r\n]" "" value))
-        (vcard-compat--decode-base64 value))
+        (ecard-compat--decode-base64 value))
        ((or (string= enc "QUOTED-PRINTABLE") (string= enc "Q"))
-        (vcard-compat--decode-quoted-printable value charset))
+        (ecard-compat--decode-quoted-printable value charset))
        (t value)))))
 
-(defun vcard-compat--convert-charset (value charset)
+(defun ecard-compat--convert-charset (value charset)
   "Convert VALUE from CHARSET to UTF-8.
 CHARSET is string like \"ISO-8859-1\" or \"UTF-8\".
 Returns UTF-8 encoded string."
@@ -172,30 +172,30 @@ Returns UTF-8 encoded string."
                 charset (error-message-string err))
        value))))
 
-(defun vcard-compat--create-data-uri (base64-data media-type)
+(defun ecard-compat--create-data-uri (base64-data media-type)
   "Create data: URI from BASE64-DATA with MEDIA-TYPE.
 Returns string like \"data:image/jpeg;base64,<data>\"."
   (format "data:%s;base64,%s" media-type base64-data))
 
 ;;; Property filtering
 
-(defun vcard-compat--should-include-property-p (prop-name)
+(defun ecard-compat--should-include-property-p (prop-name)
   "Return t if PROP-NAME should be included in conversion.
 Returns nil for properties that don't exist in vCard 4.0."
-  (not (member (upcase prop-name) vcard-compat--dropped-properties)))
+  (not (member (upcase prop-name) ecard-compat--dropped-properties)))
 
 ;;; Parameter conversion
 
-(defun vcard-compat--map-type-value (type-value)
+(defun ecard-compat--map-type-value (type-value)
   "Map vCard 2.1/3.0 TYPE-VALUE to vCard 4.0.
 Returns mapped value or nil if it should be dropped."
-  (let ((mapping (assoc (upcase type-value) vcard-compat--type-value-mapping)))
+  (let ((mapping (assoc (upcase type-value) ecard-compat--type-value-mapping)))
     (if mapping
         (cdr mapping)
       ;; Unknown type values pass through as lowercase
       (downcase type-value))))
 
-(defun vcard-compat--convert-params-21 (params _prop-name)
+(defun ecard-compat--convert-params-21 (params _prop-name)
   "Convert vCard 2.1 PARAMS to vCard 4.0 format.
 PARAMS is alist like ((\"HOME\" . t) (\"VOICE\" . t)).
 Returns alist like ((\"TYPE\" . \"home,voice\"))."
@@ -212,7 +212,7 @@ Returns alist like ((\"TYPE\" . \"home,voice\"))."
          ((member name '("HOME" "WORK" "PREF" "VOICE" "FAX" "CELL"
                          "PAGER" "VIDEO" "MSG" "INTERNET" "DOM" "INTL"
                          "POSTAL" "PARCEL"))
-          (let ((mapped (vcard-compat--map-type-value name)))
+          (let ((mapped (ecard-compat--map-type-value name)))
             (when mapped
               (push mapped types))))
 
@@ -241,7 +241,7 @@ Returns alist like ((\"TYPE\" . \"home,voice\"))."
           :encoding encoding
           :charset charset)))
 
-(defun vcard-compat--convert-params-30 (params _prop-name)
+(defun ecard-compat--convert-params-30 (params _prop-name)
   "Convert vCard 3.0 PARAMS to vCard 4.0 format.
 PARAMS is alist like ((\"TYPE\" . \"HOME,WORK\")).
 Returns alist like ((\"TYPE\" . \"home,work\"))."
@@ -264,7 +264,7 @@ Returns alist like ((\"TYPE\" . \"home,work\"))."
          ;; Type parameter - lowercase all values
          ((string= name "TYPE")
           (let* ((type-values (split-string value "," t "[ \t]*"))
-                 (mapped-values (delq nil (mapcar #'vcard-compat--map-type-value
+                 (mapped-values (delq nil (mapcar #'ecard-compat--map-type-value
                                                   type-values))))
             (when mapped-values
               (push (cons "TYPE" (mapconcat #'identity mapped-values ","))
@@ -284,7 +284,7 @@ Returns alist like ((\"TYPE\" . \"home,work\"))."
 
 ;;; Legacy property parsing
 
-(defun vcard-compat--parse-legacy-params (param-string _version)
+(defun ecard-compat--parse-legacy-params (param-string _version)
   "Parse legacy parameter string PARAM-STRING.
 Returns alist of parameters."
   (when (and param-string (not (string-empty-p param-string)))
@@ -305,7 +305,7 @@ Returns alist of parameters."
           (push (cons (upcase param) t) result)))
       (nreverse result))))
 
-(defun vcard-compat--parse-legacy-property (line version)
+(defun ecard-compat--parse-legacy-property (line version)
   "Parse a legacy vCard property LINE for VERSION.
 VERSION is \\='v21 or \\='v30.
 Returns plist with :name, :params, :value, :encoding, :charset."
@@ -314,10 +314,10 @@ Returns plist with :name, :params, :value, :encoding, :charset."
            (prop-name (upcase (match-string 2 line)))
            (params-string (match-string 3 line))
            (value (match-string 4 line))
-           (params (vcard-compat--parse-legacy-params params-string version))
+           (params (ecard-compat--parse-legacy-params params-string version))
            (converted (if (eq version 'v21)
-                         (vcard-compat--convert-params-21 params prop-name)
-                       (vcard-compat--convert-params-30 params prop-name))))
+                         (ecard-compat--convert-params-21 params prop-name)
+                       (ecard-compat--convert-params-30 params prop-name))))
 
       (list :group group
             :name prop-name
@@ -328,7 +328,7 @@ Returns plist with :name, :params, :value, :encoding, :charset."
 
 ;;; Media type detection
 
-(defun vcard-compat--detect-media-type (prop-name params)
+(defun ecard-compat--detect-media-type (prop-name params)
   "Detect media type for PROP-NAME with PARAMS.
 Returns string like \"image/jpeg\" or nil."
   (let ((type-param (cdr (assoc "TYPE" params)))
@@ -350,8 +350,8 @@ Returns string like \"image/jpeg\" or nil."
 
 ;;; vCard 4.0 object construction
 
-(defun vcard-compat--add-property-to-vcard (vc name value params group)
-  "Add property to vcard object VC.
+(defun ecard-compat--add-property-to-ecard (vc name value params group)
+  "Add property to ecard object VC.
 NAME is property name (uppercase string).
 VALUE is property value (string or list).
 PARAMS is alist of parameters.
@@ -363,7 +363,7 @@ does not mandate property order, and serialization maintains data fidelity."
   (let ((slot (intern (downcase name))))
     (when (and (slot-exists-p vc slot)
                (not (eq slot 'version)))  ; Don't override VERSION
-      (let* ((prop (vcard-property
+      (let* ((prop (ecard-property
                    :name name
                    :value value
                    :parameters params
@@ -371,22 +371,22 @@ does not mandate property order, and serialization maintains data fidelity."
              (existing (slot-value vc slot)))
 
         ;; Check cardinality constraints
-        (when (and (vcard--is-cardinality-one-property-p name)
+        (when (and (ecard--is-cardinality-one-property-p name)
                    existing)
           ;; For *1 properties, replace rather than append
           (setf (slot-value vc slot) (list prop)))
 
         ;; For other properties, prepend using cons - O(1) instead of O(n)
-        (unless (and (vcard--is-cardinality-one-property-p name)
+        (unless (and (ecard--is-cardinality-one-property-p name)
                      existing)
           (setf (slot-value vc slot) (cons prop existing)))))))
 
-(defun vcard-compat--build-vcard-40 (fn properties)
+(defun ecard-compat--build-ecard-40 (fn properties)
   "Build vCard 4.0 object from FN and PROPERTIES list.
 FN is the formatted name string (required).
 PROPERTIES is list of plists with :name, :value, :params, :group.
-Returns vcard object."
-  (let ((vc (vcard-create :fn (or fn "Unknown"))))
+Returns ecard object."
+  (let ((vc (ecard-create :fn (or fn "Unknown"))))
 
     ;; Add all properties
     (dolist (prop properties)
@@ -395,15 +395,15 @@ Returns vcard object."
             (params (plist-get prop :params))
             (group (plist-get prop :group)))
 
-        ;; Skip VERSION and FN (already set by vcard-create)
+        ;; Skip VERSION and FN (already set by ecard-create)
         (unless (member name '("VERSION" "FN"))
-          (vcard-compat--add-property-to-vcard vc name value params group))))
+          (ecard-compat--add-property-to-ecard vc name value params group))))
 
     vc))
 
 ;;; Property value processing
 
-(defun vcard-compat--process-property-value (name value params encoding charset _version)
+(defun ecard-compat--process-property-value (name value params encoding charset _version)
   "Process property VALUE for NAME with PARAMS, ENCODING, and CHARSET.
 Returns processed value (string or list)."
   (let ((processed-value value))
@@ -411,50 +411,50 @@ Returns processed value (string or list)."
     ;; First decode if encoded
     (when encoding
       (setq processed-value
-            (or (vcard-compat--decode-value processed-value encoding charset)
+            (or (ecard-compat--decode-value processed-value encoding charset)
                 processed-value)))
 
     ;; Then convert charset if specified and not encoded
     (when (and charset (not encoding))
       (setq processed-value
-            (vcard-compat--convert-charset processed-value charset)))
+            (ecard-compat--convert-charset processed-value charset)))
 
     ;; For binary properties with base64 encoding, create data URI
     (when (and encoding
                (or (string= (upcase encoding) "BASE64")
                    (string= (upcase encoding) "B"))
                (member name '("PHOTO" "LOGO" "SOUND" "KEY")))
-      (let ((media-type (vcard-compat--detect-media-type name params)))
+      (let ((media-type (ecard-compat--detect-media-type name params)))
         (when media-type
           (setq processed-value
-                (vcard-compat--create-data-uri processed-value media-type)))))
+                (ecard-compat--create-data-uri processed-value media-type)))))
 
     ;; Parse structured values for N, ADR, ORG, GENDER (semicolon-separated)
     (when (member name '("N" "ADR" "ORG" "GENDER"))
       (setq processed-value
             (mapcar (lambda (s)
-                     (vcard--unescape-value s))
+                     (ecard--unescape-value s))
                    (split-string processed-value ";" nil))))
 
     ;; Parse text-list values for CATEGORIES, NICKNAME (comma-separated)
     (when (member name '("CATEGORIES" "NICKNAME"))
       (setq processed-value
-            (vcard--split-text-list processed-value)))
+            (ecard--split-text-list processed-value)))
 
     ;; For other properties, unescape the value
     (unless (or (listp processed-value)
                 (member name '("PHOTO" "LOGO" "SOUND" "KEY")))
-      (setq processed-value (vcard--unescape-value processed-value)))
+      (setq processed-value (ecard--unescape-value processed-value)))
 
     processed-value))
 
 ;;; Main conversion functions
 
-(defun vcard-compat--properties-to-vcard-40 (properties version)
+(defun ecard-compat--properties-to-ecard-40 (properties version)
   "Convert PROPERTIES list from VERSION to vCard 4.0 object.
-PROPERTIES is list of plists from vcard-compat--parse-legacy-property.
+PROPERTIES is list of plists from ecard-compat--parse-legacy-property.
 VERSION is \\='v21 or \\='v30.
-Returns vcard object."
+Returns ecard object."
   (let ((fn nil)
         (converted-props '()))
 
@@ -468,9 +468,9 @@ Returns vcard object."
              (charset (plist-get prop :charset)))
 
         ;; Skip dropped properties
-        (when (vcard-compat--should-include-property-p name)
+        (when (ecard-compat--should-include-property-p name)
           ;; Process value (decode, convert charset, etc.)
-          (setq value (vcard-compat--process-property-value
+          (setq value (ecard-compat--process-property-value
                       name value params encoding charset version))
 
           ;; Store FN for later
@@ -485,64 +485,64 @@ Returns vcard object."
                 converted-props))))
 
     ;; Create vCard 4.0 object
-    (vcard-compat--build-vcard-40 fn (nreverse converted-props))))
+    (ecard-compat--build-ecard-40 fn (nreverse converted-props))))
 
-(defun vcard-compat--parse-legacy-vcard (text version)
+(defun ecard-compat--parse-legacy-ecard (text version)
   "Parse legacy vCard TEXT for VERSION.
 VERSION is \\='v21 or \\='v30.
-Returns vcard object."
-  (let* ((lines (vcard--unfold-lines text))
+Returns ecard object."
+  (let* ((lines (ecard--unfold-lines text))
          (properties '())
-         (in-vcard nil))
+         (in-ecard nil))
 
     ;; Parse all properties
     (dolist (line lines)
       (cond
        ((string-match-p "^BEGIN:VCARD" line)
-        (setq in-vcard t))
+        (setq in-ecard t))
 
        ((string-match-p "^END:VCARD" line)
-        (setq in-vcard nil))
+        (setq in-ecard nil))
 
-       ((and in-vcard (not (string-match-p "^\\s-*$" line)))
-        (when-let ((parsed (vcard-compat--parse-legacy-property line version)))
+       ((and in-ecard (not (string-match-p "^\\s-*$" line)))
+        (when-let ((parsed (ecard-compat--parse-legacy-property line version)))
           (push parsed properties)))))
 
     ;; Convert to vCard 4.0
-    (vcard-compat--properties-to-vcard-40 (nreverse properties) version)))
+    (ecard-compat--properties-to-ecard-40 (nreverse properties) version)))
 
 ;;;###autoload
-(defun vcard-compat-parse-21 (text)
+(defun ecard-compat-parse-21 (text)
   "Parse vCard 2.1 TEXT and convert to vCard 4.0 object.
 Handles BASE64 and QUOTED-PRINTABLE encodings.
 Converts character sets to UTF-8.
-Returns vcard object."
-  (vcard-compat--parse-legacy-vcard text 'v21))
+Returns ecard object."
+  (ecard-compat--parse-legacy-ecard text 'v21))
 
 ;;;###autoload
-(defun vcard-compat-parse-30 (text)
+(defun ecard-compat-parse-30 (text)
   "Parse vCard 3.0 TEXT and convert to vCard 4.0 object.
 Handles BASE64 encoding.
 Converts character sets to UTF-8.
-Returns vcard object."
-  (vcard-compat--parse-legacy-vcard text 'v30))
+Returns ecard object."
+  (ecard-compat--parse-legacy-ecard text 'v30))
 
 ;;;###autoload
-(defun vcard-compat-parse (text)
+(defun ecard-compat-parse (text)
   "Parse vCard TEXT of any version (2.1, 3.0, 4.0) and convert to vCard 4.0.
 Auto-detects version and applies appropriate conversion.
-Returns vcard object.
-Signals `vcard-compat-version-error' if version is unknown or missing."
-  (let ((version (vcard-compat--detect-version text)))
+Returns ecard object.
+Signals `ecard-compat-version-error' if version is unknown or missing."
+  (let ((version (ecard-compat--detect-version text)))
     (cond
-     ((eq version 'v21) (vcard-compat-parse-21 text))
-     ((eq version 'v30) (vcard-compat-parse-30 text))
-     ((eq version 'v40) (vcard-parse text))
-     (t (signal 'vcard-compat-version-error
+     ((eq version 'v21) (ecard-compat-parse-21 text))
+     ((eq version 'v30) (ecard-compat-parse-30 text))
+     ((eq version 'v40) (ecard-parse text))
+     (t (signal 'ecard-compat-version-error
                '("Unknown or missing vCard VERSION"))))))
 
 ;;;###autoload
-(defun vcard-compat-parse-multiple (text)
+(defun ecard-compat-parse-multiple (text)
   "Parse TEXT containing one or more vCards of any version.
 Auto-detects each vCard's version and converts to vCard 4.0.
 Returns list of vCard 4.0 objects.
@@ -551,63 +551,63 @@ Performance: Uses list accumulation for O(n) line building
 instead of O(n²) concatenation."
   (let ((vcards '())
         (current-lines nil)  ; Accumulate lines in reverse order - O(1) per line
-        (in-vcard nil))
+        (in-ecard nil))
 
     (dolist (line (split-string text "[\r\n]+" t))
       (cond
        ((string-match-p "^BEGIN:VCARD" line)
-        (setq in-vcard t)
+        (setq in-ecard t)
         (setq current-lines (list line)))  ; Start new vCard
 
        ((string-match-p "^END:VCARD" line)
         (push line current-lines)
         ;; Build vCard text from accumulated lines - O(n)
-        (let ((current-vcard (mapconcat #'identity (nreverse current-lines) "\n")))
+        (let ((current-ecard (mapconcat #'identity (nreverse current-lines) "\n")))
           (condition-case err
-              (push (vcard-compat-parse current-vcard) vcards)
+              (push (ecard-compat-parse current-ecard) vcards)
             (error
              (message "Failed to parse vCard: %s" (error-message-string err)))))
-        (setq in-vcard nil)
+        (setq in-ecard nil)
         (setq current-lines nil))
 
-       (in-vcard
+       (in-ecard
         (push line current-lines))))  ; Accumulate line - O(1)
 
     (nreverse vcards)))
 
 ;;;###autoload
-(defun vcard-compat-parse-buffer (&optional buffer)
+(defun ecard-compat-parse-buffer (&optional buffer)
   "Parse vCard data from BUFFER and convert to vCard 4.0.
 BUFFER defaults to current buffer if not specified.
 Auto-detects each vCard's version (2.1, 3.0, 4.0) and converts to vCard 4.0.
 
-Returns a single vcard object if only one vCard is found.
-Returns a list of vcard objects if multiple vCards are found.
+Returns a single ecard object if only one vCard is found.
+Returns a list of ecard objects if multiple vCards are found.
 Returns nil if no vCards are found.
 
 Example:
   (with-current-buffer \"contacts.vcf\"
-    (vcard-compat-parse-buffer))
-  => vcard object or list of vcard objects"
+    (ecard-compat-parse-buffer))
+  => ecard object or list of ecard objects"
   (with-current-buffer (or buffer (current-buffer))
-    (let ((vcards (vcard-compat-parse-multiple (buffer-string))))
+    (let ((vcards (ecard-compat-parse-multiple (buffer-string))))
       (cond
        ((null vcards) nil)
        ((= (length vcards) 1) (car vcards))
        (t vcards)))))
 
 ;;;###autoload
-(defun vcard-compat-parse-file (filename)
+(defun ecard-compat-parse-file (filename)
   "Parse vCard file FILENAME of any version and convert to vCard 4.0.
-Returns vcard object or list of vcard objects.
-If FILENAME contains a single vCard, returns a single vcard object.
-If FILENAME contains multiple vCards, returns a list of vcard objects."
+Returns ecard object or list of ecard objects.
+If FILENAME contains a single vCard, returns a single ecard object.
+If FILENAME contains multiple vCards, returns a list of ecard objects."
   (with-temp-buffer
     (insert-file-contents filename)
-    (let ((vcards (vcard-compat-parse-multiple (buffer-string))))
+    (let ((vcards (ecard-compat-parse-multiple (buffer-string))))
       (if (= (length vcards) 1)
           (car vcards)
         vcards))))
 
-(provide 'vcard-compat)
-;;; vcard-compat.el ends here
+(provide 'ecard-compat)
+;;; ecard-compat.el ends here

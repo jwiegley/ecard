@@ -1,20 +1,20 @@
-;;; vcard-compat-examples.el --- Usage examples for vcard-compat -*- lexical-binding: t; -*-
+;;; ecard-compat-examples.el --- Usage examples for ecard-compat -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2025 John Wiegley
 
 ;;; Commentary:
 
-;; Practical examples demonstrating vcard-compat.el usage
+;; Practical examples demonstrating ecard-compat.el usage
 
 ;;; Code:
 
-(require 'vcard-compat)
+(require 'ecard-compat)
 
 ;;; Example 1: Parse legacy vCard 2.1
 
-(defun vcard-compat-example-parse-21 ()
+(defun ecard-compat-example-parse-21 ()
   "Example: Parse vCard 2.1 with encoding."
-  (let* ((vcard-21-text "BEGIN:VCARD
+  (let* ((ecard-21-text "BEGIN:VCARD
 VERSION:2.1
 FN:John Q. Public
 N:Public;John;Quinlan;Mr.;Esq.
@@ -35,14 +35,14 @@ PHOTO;ENCODING=BASE64;TYPE=JPEG:
  lJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo
  6erx8vP09fb3+Pn6/9oACAEBAAA/AOg/4Q/yH/oJ/r0o/wCEP8h/6Cf69KKKKKKKK//Z
 END:VCARD")
-         (contact (vcard-compat-parse-21 vcard-21-text)))
+         (contact (ecard-compat-parse-21 ecard-21-text)))
 
     ;; Display parsed information
     (message "=== Parsed vCard 2.1 ===")
-    (message "Name: %s" (vcard-get-property-value contact 'fn))
+    (message "Name: %s" (ecard-get-property-value contact 'fn))
 
     ;; Access structured name
-    (let ((n-value (vcard-get-property-value contact 'n)))
+    (let ((n-value (ecard-get-property-value contact 'n)))
       (message "Structured name: %s" (mapconcat #'identity n-value " ")))
 
     ;; Show all phone numbers with their types
@@ -55,23 +55,23 @@ END:VCARD")
                    (or (cdr (assoc "TYPE" params)) "unspecified")))))
 
     ;; Show decoded note (QUOTED-PRINTABLE was decoded)
-    (message "Note: %s" (vcard-get-property-value contact 'note))
+    (message "Note: %s" (ecard-get-property-value contact 'note))
 
     ;; Show photo as data URI
-    (let ((photo (vcard-get-property-value contact 'photo)))
+    (let ((photo (ecard-get-property-value contact 'photo)))
       (message "Photo: %s..." (substring photo 0 50)))
 
     ;; Serialize to vCard 4.0
     (message "\n=== Converted to vCard 4.0 ===")
-    (message "%s" (vcard-serialize contact))
+    (message "%s" (ecard-serialize contact))
 
     contact))
 
 ;;; Example 2: Parse vCard 3.0 with categories
 
-(defun vcard-compat-example-parse-30 ()
+(defun ecard-compat-example-parse-30 ()
   "Example: Parse vCard 3.0 with text lists."
-  (let* ((vcard-30-text "BEGIN:VCARD
+  (let* ((ecard-30-text "BEGIN:VCARD
 VERSION:3.0
 FN:Jane Smith
 N:Smith;Jane;Marie;;
@@ -84,57 +84,57 @@ NICKNAME:Janey,JMS
 URL:https://janesmith.example.com
 NOTE:Met at AI conference 2024.\\nExpert in machine learning.
 END:VCARD")
-         (contact (vcard-compat-parse-30 vcard-30-text)))
+         (contact (ecard-compat-parse-30 ecard-30-text)))
 
     (message "=== Parsed vCard 3.0 ===")
-    (message "Name: %s" (vcard-get-property-value contact 'fn))
+    (message "Name: %s" (ecard-get-property-value contact 'fn))
 
     ;; Show organization structure
-    (let ((org-value (vcard-get-property-value contact 'org)))
+    (let ((org-value (ecard-get-property-value contact 'org)))
       (message "Organization: %s" (car org-value))
       (message "Department: %s" (mapconcat #'identity (cdr org-value) " > ")))
 
     ;; Show categories (parsed from comma-separated list)
-    (let ((categories (vcard-get-property-value contact 'categories)))
+    (let ((categories (ecard-get-property-value contact 'categories)))
       (message "Categories: %s" (mapconcat #'identity categories ", ")))
 
     ;; Show nicknames (parsed from comma-separated list)
-    (let ((nicknames (vcard-get-property-value contact 'nickname)))
+    (let ((nicknames (ecard-get-property-value contact 'nickname)))
       (message "Nicknames: %s" (mapconcat #'identity nicknames ", ")))
 
     ;; Show note with escaped newlines
-    (message "Note:\n%s" (vcard-get-property-value contact 'note))
+    (message "Note:\n%s" (ecard-get-property-value contact 'note))
 
     contact))
 
 ;;; Example 3: Auto-detect version and parse
 
-(defun vcard-compat-example-auto-detect ()
+(defun ecard-compat-example-auto-detect ()
   "Example: Auto-detect vCard version."
-  (let ((vcard-texts
+  (let ((ecard-texts
          '(("vCard 2.1" . "BEGIN:VCARD\nVERSION:2.1\nFN:Person One\nTEL;HOME:555-0001\nEND:VCARD")
            ("vCard 3.0" . "BEGIN:VCARD\nVERSION:3.0\nFN:Person Two\nTEL;TYPE=HOME:555-0002\nEND:VCARD")
            ("vCard 4.0" . "BEGIN:VCARD\nVERSION:4.0\nFN:Person Three\nTEL;TYPE=home:555-0003\nEND:VCARD"))))
 
     (message "=== Auto-detecting vCard versions ===")
-    (dolist (entry vcard-texts)
+    (dolist (entry ecard-texts)
       (let* ((label (car entry))
              (text (cdr entry))
-             (version (vcard-compat--detect-version text))
-             (contact (vcard-compat-parse text)))
+             (version (ecard-compat--detect-version text))
+             (contact (ecard-compat-parse text)))
 
         (message "\n%s (detected: %s)" label version)
-        (message "  Name: %s" (vcard-get-property-value contact 'fn))
-        (message "  Phone: %s" (vcard-get-property-value contact 'tel))))))
+        (message "  Name: %s" (ecard-get-property-value contact 'fn))
+        (message "  Phone: %s" (ecard-get-property-value contact 'tel))))))
 
 ;;; Example 4: Parse multiple vCards from file
 
-(defun vcard-compat-example-parse-multiple (filename)
+(defun ecard-compat-example-parse-multiple (filename)
   "Example: Parse multiple vCards from FILENAME."
   (interactive "fvCard file: ")
 
   (condition-case err
-      (let ((contacts (vcard-compat-parse-file filename)))
+      (let ((contacts (ecard-compat-parse-file filename)))
 
         ;; Handle both single and multiple contacts
         (setq contacts (if (listp contacts) contacts (list contacts)))
@@ -142,9 +142,9 @@ END:VCARD")
         (message "=== Parsed %d contact(s) from %s ===" (length contacts) filename)
 
         (dolist (contact contacts)
-          (let ((fn (vcard-get-property-value contact 'fn))
-                (emails (vcard-get-property-values contact 'email))
-                (phones (vcard-get-property-values contact 'tel)))
+          (let ((fn (ecard-get-property-value contact 'fn))
+                (emails (ecard-get-property-values contact 'email))
+                (phones (ecard-get-property-values contact 'tel)))
 
             (message "\nContact: %s" fn)
             (when emails
@@ -160,7 +160,7 @@ END:VCARD")
 
 ;;; Example 5: Convert legacy vCards to vCard 4.0 files
 
-(defun vcard-compat-example-batch-convert (input-dir output-dir)
+(defun ecard-compat-example-batch-convert (input-dir output-dir)
   "Example: Convert all vCards in INPUT-DIR to vCard 4.0 in OUTPUT-DIR."
   (interactive "DInput directory: \nDOutput directory: ")
 
@@ -173,18 +173,18 @@ END:VCARD")
 
     (dolist (file vcf-files)
       (condition-case err
-          (let* ((contacts (vcard-compat-parse-file file))
+          (let* ((contacts (ecard-compat-parse-file file))
                  (contacts-list (if (listp contacts) contacts (list contacts))))
 
             ;; Write each contact as separate vCard 4.0 file
             (dolist (contact contacts-list)
-              (let* ((fn (vcard-get-property-value contact 'fn))
+              (let* ((fn (ecard-get-property-value contact 'fn))
                      (safe-name (replace-regexp-in-string "[^a-zA-Z0-9-]" "_" fn))
                      (output-file (expand-file-name
                                   (format "%s.vcf" safe-name)
                                   output-dir)))
 
-                (vcard-write-file contact output-file)
+                (ecard-write-file contact output-file)
                 (setq converted (1+ converted)))))
 
         (error
@@ -195,9 +195,9 @@ END:VCARD")
 
 ;;; Example 6: Working with encoded data
 
-(defun vcard-compat-example-encoded-photo ()
+(defun ecard-compat-example-encoded-photo ()
   "Example: Parse vCard with BASE64-encoded photo."
-  (let* ((vcard-text "BEGIN:VCARD
+  (let* ((ecard-text "BEGIN:VCARD
 VERSION:2.1
 FN:Photo Contact
 PHOTO;ENCODING=BASE64;TYPE=JPEG:
@@ -209,12 +209,12 @@ PHOTO;ENCODING=BASE64;TYPE=JPEG:
  lJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo
  6erx8vP09fb3+Pn6/9oACAEBAAA/AOg/4Q/yH/oJ/r0o/wCEP8h/6Cf69KKKKKKKK//Z
 END:VCARD")
-         (contact (vcard-compat-parse vcard-text)))
+         (contact (ecard-compat-parse ecard-text)))
 
     (message "=== Photo handling ===")
 
     ;; Photo is automatically converted to data URI
-    (let ((photo-uri (vcard-get-property-value contact 'photo)))
+    (let ((photo-uri (ecard-get-property-value contact 'photo)))
       (message "Photo data URI (first 100 chars):\n%s..."
                (substring photo-uri 0 (min 100 (length photo-uri))))
 
@@ -227,38 +227,38 @@ END:VCARD")
 
 ;;; Example 7: Error handling
 
-(defun vcard-compat-example-error-handling ()
+(defun ecard-compat-example-error-handling ()
   "Example: Demonstrate error handling."
   (message "=== Error Handling Examples ===\n")
 
   ;; Example 1: Unknown version
   (message "1. Unknown version:")
   (condition-case err
-      (vcard-compat-parse "BEGIN:VCARD\nVERSION:5.0\nFN:Test\nEND:VCARD")
-    (vcard-compat-version-error
+      (ecard-compat-parse "BEGIN:VCARD\nVERSION:5.0\nFN:Test\nEND:VCARD")
+    (ecard-compat-version-error
      (message "   Caught version error: %s" (error-message-string err))))
 
-  ;; Example 2: Missing FN (validation error from vcard.el)
+  ;; Example 2: Missing FN (validation error from ecard.el)
   (message "\n2. Missing required FN property:")
   (condition-case err
-      (vcard-compat-parse "BEGIN:VCARD\nVERSION:2.1\nEND:VCARD")
-    (vcard-validation-error
+      (ecard-compat-parse "BEGIN:VCARD\nVERSION:2.1\nEND:VCARD")
+    (ecard-validation-error
      (message "   Caught validation error: %s" (error-message-string err))))
 
   ;; Example 3: Invalid BASE64
   (message "\n3. Invalid BASE64 encoding:")
   (condition-case err
-      (vcard-compat-parse-21 "BEGIN:VCARD\nVERSION:2.1\nFN:Test\nPHOTO;ENCODING=BASE64:!!!\nEND:VCARD")
-    (vcard-compat-encoding-error
+      (ecard-compat-parse-21 "BEGIN:VCARD\nVERSION:2.1\nFN:Test\nPHOTO;ENCODING=BASE64:!!!\nEND:VCARD")
+    (ecard-compat-encoding-error
      (message "   Caught encoding error: %s" (error-message-string err))))
 
   (message "\n✓ Error handling working correctly"))
 
 ;;; Example 8: Property type conversion
 
-(defun vcard-compat-example-type-conversion ()
+(defun ecard-compat-example-type-conversion ()
   "Example: Show type parameter conversion."
-  (let* ((vcard-21 "BEGIN:VCARD
+  (let* ((ecard-21 "BEGIN:VCARD
 VERSION:2.1
 FN:Type Test
 TEL;HOME;VOICE;PREF:555-1111
@@ -266,7 +266,7 @@ TEL;WORK;FAX:555-2222
 EMAIL;INTERNET:test@example.com
 ADR;HOME;POSTAL:;;123 Main St;City;ST;12345;USA
 END:VCARD")
-         (contact (vcard-compat-parse-21 vcard-21)))
+         (contact (ecard-compat-parse-21 ecard-21)))
 
     (message "=== Type Parameter Conversion (2.1 → 4.0) ===\n")
 
@@ -297,8 +297,8 @@ END:VCARD")
 
 ;;; Run all examples
 
-(defun vcard-compat-run-all-examples ()
-  "Run all vcard-compat examples."
+(defun ecard-compat-run-all-examples ()
+  "Run all ecard-compat examples."
   (interactive)
 
   (message "\n╔════════════════════════════════════════════════════════════╗")
@@ -306,26 +306,26 @@ END:VCARD")
   (message "╚════════════════════════════════════════════════════════════╝\n")
 
   (message "\n--- Example 1: Parse vCard 2.1 ---")
-  (vcard-compat-example-parse-21)
+  (ecard-compat-example-parse-21)
 
   (message "\n\n--- Example 2: Parse vCard 3.0 ---")
-  (vcard-compat-example-parse-30)
+  (ecard-compat-example-parse-30)
 
   (message "\n\n--- Example 3: Auto-detect version ---")
-  (vcard-compat-example-auto-detect)
+  (ecard-compat-example-auto-detect)
 
   (message "\n\n--- Example 6: Encoded photo ---")
-  (vcard-compat-example-encoded-photo)
+  (ecard-compat-example-encoded-photo)
 
   (message "\n\n--- Example 7: Error handling ---")
-  (vcard-compat-example-error-handling)
+  (ecard-compat-example-error-handling)
 
   (message "\n\n--- Example 8: Type conversion ---")
-  (vcard-compat-example-type-conversion)
+  (ecard-compat-example-type-conversion)
 
   (message "\n\n╔════════════════════════════════════════════════════════════╗")
   (message "║                  Examples Complete                          ║")
   (message "╚════════════════════════════════════════════════════════════╝\n"))
 
-(provide 'vcard-compat-examples)
-;;; vcard-compat-examples.el ends here
+(provide 'ecard-compat-examples)
+;;; ecard-compat-examples.el ends here

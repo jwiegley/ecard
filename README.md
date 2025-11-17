@@ -1,4 +1,4 @@
-# emacs-vcard
+# Emacs ecard
 
 A complete vCard 4.0 (RFC 6350) parser and serializer for Emacs, providing a clean API for programmatic contact management.
 
@@ -11,7 +11,7 @@ A complete vCard 4.0 (RFC 6350) parser and serializer for Emacs, providing a cle
 - **UTF-8 Support** - Proper handling of international characters
 - **Extended Properties** - Support for X-* custom properties
 
-## Why Use emacs-vcard?
+## Why Use emacs-ecard?
 
 - **Email Integration** - Parse vCard attachments from emails directly in Emacs
 - **Contact Management** - Build custom contact management tools
@@ -25,20 +25,20 @@ A complete vCard 4.0 (RFC 6350) parser and serializer for Emacs, providing a cle
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/emacs-vcard.git
+git clone https://github.com/yourusername/emacs-ecard.git
 ```
 
 2. Add to your Emacs configuration:
 ```elisp
-(add-to-list 'load-path "/path/to/emacs-vcard")
-(require 'vcard)
+(add-to-list 'load-path "/path/to/emacs-ecard")
+(require 'ecard)
 ```
 
 ### Using use-package
 
 ```elisp
-(use-package vcard
-  :load-path "/path/to/emacs-vcard")
+(use-package ecard
+  :load-path "/path/to/emacs-ecard")
 ```
 
 ## Quick Start
@@ -46,24 +46,24 @@ git clone https://github.com/yourusername/emacs-vcard.git
 ### Parse a vCard from File
 
 ```elisp
-(let ((contact (vcard-parse-file "~/contacts/john.vcf")))
+(let ((contact (ecard-parse-file "~/contacts/john.vcf")))
   ;; Get the formatted name
-  (vcard-get-property-value contact 'fn)
+  (ecard-get-property-value contact 'fn)
   ;; => "John Doe"
 
   ;; Get all email addresses
-  (vcard-get-property-values contact 'email)
+  (ecard-get-property-values contact 'email)
   ;; => ("john@example.com" "john.doe@work.com")
 
   ;; Get first phone number
-  (vcard-get-property-value contact 'tel)
+  (ecard-get-property-value contact 'tel)
   ;; => "+1-555-1234")
 ```
 
 ### Create a New vCard
 
 ```elisp
-(let ((contact (vcard-create
+(let ((contact (ecard-create
                 :fn "Jane Smith"
                 :n "Smith;Jane;Marie;Dr.;PhD"
                 :email '("jane@example.com" "j.smith@university.edu")
@@ -71,59 +71,59 @@ git clone https://github.com/yourusername/emacs-vcard.git
                 :org "Acme Corporation")))
 
   ;; Save to file
-  (vcard-write-file contact "~/contacts/jane.vcf"))
+  (ecard-write-file contact "~/contacts/jane.vcf"))
 ```
 
 ### Parse from String
 
 ```elisp
-(let* ((vcard-text "BEGIN:VCARD
+(let* ((ecard-text "BEGIN:VCARD
 VERSION:4.0
 FN:John Doe
 EMAIL:john@example.com
 END:VCARD")
-       (contact (vcard-parse vcard-text)))
-  (vcard-get-property-value contact 'email))
+       (contact (ecard-parse ecard-text)))
+  (ecard-get-property-value contact 'email))
 ;; => "john@example.com"
 ```
 
 ### Modify Properties
 
 ```elisp
-(let ((contact (vcard-parse-file "~/contacts/john.vcf")))
+(let ((contact (ecard-parse-file "~/contacts/john.vcf")))
   ;; Replace all emails
-  (vcard-set-property contact 'email "newemail@example.com")
+  (ecard-set-property contact 'email "newemail@example.com")
 
   ;; Add an additional phone number
-  (vcard-add-property contact 'tel "+1-555-9999")
+  (ecard-add-property contact 'tel "+1-555-9999")
 
   ;; Update organization
-  (vcard-set-property contact 'org "New Company Inc.")
+  (ecard-set-property contact 'org "New Company Inc.")
 
   ;; Save changes
-  (vcard-write-file contact "~/contacts/john-updated.vcf"))
+  (ecard-write-file contact "~/contacts/john-updated.vcf"))
 ```
 
 ## API Reference
 
 ### Parsing Functions
 
-- `(vcard-parse STRING)` - Parse vCard string into vcard object
-- `(vcard-parse-file FILENAME)` - Parse vCard from file
-- `(vcard-parse-buffer)` - Parse current buffer as vCard
+- `(ecard-parse STRING)` - Parse vCard string into ecard object
+- `(ecard-parse-file FILENAME)` - Parse vCard from file
+- `(ecard-parse-buffer)` - Parse current buffer as vCard
 
 ### Creation and Serialization
 
-- `(vcard-create &rest PROPERTIES)` - Create new vcard with properties
-- `(vcard-serialize VCARD)` - Convert vcard object to RFC 6350 string
-- `(vcard-write-file VCARD FILENAME)` - Write vcard to file
+- `(ecard-create &rest PROPERTIES)` - Create new ecard with properties
+- `(ecard-serialize VCARD)` - Convert ecard object to RFC 6350 string
+- `(ecard-write-file VCARD FILENAME)` - Write ecard to file
 
 ### Property Access
 
-- `(vcard-get-property-value VCARD PROPERTY)` - Get first value of property
-- `(vcard-get-property-values VCARD PROPERTY)` - Get all values of property
-- `(vcard-set-property VCARD PROPERTY VALUE)` - Replace property value(s)
-- `(vcard-add-property VCARD PROPERTY VALUE)` - Add additional property value
+- `(ecard-get-property-value VCARD PROPERTY)` - Get first value of property
+- `(ecard-get-property-values VCARD PROPERTY)` - Get all values of property
+- `(ecard-set-property VCARD PROPERTY VALUE)` - Replace property value(s)
+- `(ecard-add-property VCARD PROPERTY VALUE)` - Add additional property value
 
 ### Properties Supported
 
@@ -152,20 +152,20 @@ All standard vCard 4.0 properties are supported:
    (lambda (contact)
      (seq-some (lambda (email)
                  (string-match-p (concat "@" domain "$") email))
-               (vcard-get-property-values contact 'email)))
-   (mapcar #'vcard-parse-file vcf-files)))
+               (ecard-get-property-values contact 'email)))
+   (mapcar #'ecard-parse-file vcf-files)))
 ```
 
 ### Export to CSV
 
 ```elisp
-(defun vcard-to-csv (vcard)
+(defun ecard-to-csv (ecard)
   "Convert vCard to CSV row."
   (mapconcat #'identity
-             (list (or (vcard-get-property-value vcard 'fn) "")
-                   (or (vcard-get-property-value vcard 'email) "")
-                   (or (vcard-get-property-value vcard 'tel) "")
-                   (or (vcard-get-property-value vcard 'org) ""))
+             (list (or (ecard-get-property-value ecard 'fn) "")
+                   (or (ecard-get-property-value ecard 'email) "")
+                   (or (ecard-get-property-value ecard 'tel) "")
+                   (or (ecard-get-property-value ecard 'org) ""))
              ","))
 ```
 
@@ -175,10 +175,10 @@ All standard vCard 4.0 properties are supported:
 (defun update-organization (directory old-name new-name)
   "Update organization name in all vCards in DIRECTORY."
   (dolist (file (directory-files directory t "\\.vcf$"))
-    (let ((contact (vcard-parse-file file)))
-      (when (equal (vcard-get-property-value contact 'org) old-name)
-        (vcard-set-property contact 'org new-name)
-        (vcard-write-file contact file)))))
+    (let ((contact (ecard-parse-file file)))
+      (when (equal (ecard-get-property-value contact 'org) old-name)
+        (ecard-set-property contact 'org new-name)
+        (ecard-write-file contact file)))))
 ```
 
 ## Current Limitations
@@ -187,7 +187,7 @@ All standard vCard 4.0 properties are supported:
 - **Single vCard Parsing** - Cannot parse multiple vCards in one file
 - **No Value Validation** - Dates, URIs, etc. are not validated
 - **No MIME Handling** - PHOTO/LOGO/SOUND properties store raw strings
-- **Limited High-Level API** - No convenience methods like `vcard-add-email` yet
+- **Limited High-Level API** - No convenience methods like `ecard-add-email` yet
 
 ## Testing
 
@@ -195,15 +195,15 @@ Run the test suite:
 
 ```bash
 # All tests
-emacs -batch -L . -l vcard.el -l vcard-test.el -f ert-run-tests-batch-and-exit
+emacs -batch -L . -l ecard.el -l ecard-test.el -f ert-run-tests-batch-and-exit
 
 # Interactive testing (for debugging)
-emacs -l vcard.el -l vcard-test.el
+emacs -l ecard.el -l ecard-test.el
 # Then: M-x ert RET t RET
 
 # Single test
-emacs -batch -L . -l vcard.el -l vcard-test.el \
-  --eval "(ert-run-tests-batch-and-exit 'vcard-parse-simple-test)"
+emacs -batch -L . -l ecard.el -l ecard-test.el \
+  --eval "(ert-run-tests-batch-and-exit 'ecard-parse-simple-test)"
 ```
 
 ## Contributing
