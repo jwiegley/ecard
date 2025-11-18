@@ -12,7 +12,6 @@
 (require 'ecard)  ;; Required for ecard API
 (require 'ecard-tools-adapter)  ;; Required for adapter layer
 (require 'ecard-tools)
-(require 'ecard-tools-curator)
 
 ;; ============================================================================
 ;; Test Data
