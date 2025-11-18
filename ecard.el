@@ -301,7 +301,8 @@ instead of O(n²) concatenation."
 
 (defun ecard--unescape-value (value)
   "Unescape vCard VALUE according to RFC 6350.
-Handles \\n (newline), \\\\ (backslash), \\, (comma), \\; (semicolon)."
+Handles \\n and \\N (newline), \\\\ (backslash), \\, (comma), \\; (semicolon).
+RFC 6350 Section 3.4 allows both lowercase and uppercase N for newlines."
   (let ((result "")
         (i 0)
         (len (length value)))
@@ -312,6 +313,7 @@ Handles \\n (newline), \\\\ (backslash), \\, (comma), \\; (semicolon)."
               (setq result (concat result
                                    (pcase next
                                      (?n "\n")
+                                     (?N "\n")  ; RFC 6350 allows capital N
                                      (?\\ "\\")
                                      (?, ",")
                                      (?\; ";")
@@ -350,6 +352,41 @@ Used for CATEGORIES and NICKNAME properties."
       (push (ecard--unescape-value current) result))
     (nreverse result)))
 
+(defun ecard--split-on-unescaped-semicolon (value-string)
+  "Split VALUE-STRING on unescaped semicolons, preserving escape sequences.
+Returns list of unescaped component values.
+Used for structured properties like N, ADR, ORG, GENDER."
+  (let ((result nil)
+        (current "")
+        (i 0)
+        (len (length value-string))
+        (escaped nil))  ; Is the NEXT character escaped?
+    (while (< i len)
+      (let ((char (aref value-string i)))
+        (cond
+         ;; Previous char was backslash, so this char is escaped
+         (escaped
+          (setq current (concat current (char-to-string char)))
+          (setq escaped nil)
+          (setq i (1+ i)))
+         ;; This is a backslash - next char will be escaped
+         ((eq char ?\\)
+          (setq current (concat current "\\"))
+          (setq escaped t)
+          (setq i (1+ i)))
+         ;; Unescaped semicolon - split here
+         ((eq char ?\;)
+          (push (ecard--unescape-value current) result)
+          (setq current "")
+          (setq i (1+ i)))
+         ;; Regular character
+         (t
+          (setq current (concat current (char-to-string char)))
+          (setq i (1+ i))))))
+    ;; Add final component
+    (push (ecard--unescape-value current) result)
+    (nreverse result)))
+
 (defun ecard--escape-value (value)
   "Escape vCard VALUE according to RFC 6350.
 Escapes newlines (\\n), backslashes (\\\\), commas (\\,), semicolons (\\;)."
@@ -360,11 +397,43 @@ Escapes newlines (\\n), backslashes (\\\\), commas (\\,), semicolons (\\;)."
     (setq value (replace-regexp-in-string ";" "\\\\;" value))
     value))
 
+(defun ecard--split-parameters (param-string)
+  "Split PARAM-STRING on semicolons, respecting quoted values.
+Returns list of parameter strings. Quoted values may contain semicolons."
+  (let ((result nil)
+        (current "")
+        (i 0)
+        (len (length param-string))
+        (in-quotes nil))
+    (while (< i len)
+      (let ((char (aref param-string i)))
+        (cond
+         ;; Toggle quote state
+         ((eq char ?\")
+          (setq current (concat current "\""))
+          (setq in-quotes (not in-quotes))
+          (setq i (1+ i)))
+         ;; Semicolon outside quotes - split here
+         ((and (eq char ?\;) (not in-quotes))
+          (when (> (length (string-trim current)) 0)
+            (push (string-trim current) result))
+          (setq current "")
+          (setq i (1+ i)))
+         ;; Any other character - add to current
+         (t
+          (setq current (concat current (char-to-string char)))
+          (setq i (1+ i))))))
+    ;; Add final parameter
+    (when (> (length (string-trim current)) 0)
+      (push (string-trim current) result))
+    (nreverse result)))
+
 (defun ecard--parse-parameters (param-string)
   "Parse vCard parameter string PARAM-STRING into alist.
-Returns ((PARAM-NAME . param-value) ...)."
+Returns ((PARAM-NAME . param-value) ...).
+Properly handles quoted parameter values that may contain semicolons."
   (when (and param-string (not (string-empty-p param-string)))
-    (let ((params (split-string param-string ";" t "[ \t]*"))
+    (let ((params (ecard--split-parameters param-string))
           (result nil))
       (dolist (param params)
         (if (string-match "^\\([^=]+\\)=\\(.+\\)$" param)
@@ -397,25 +466,125 @@ Returns string like \"PARAM1=val1;PARAM2=val2\" or empty string."
                parameters
                ";")))
 
+(defun ecard--find-value-separator (str)
+  "Find position of value separator colon in STR.
+Returns the index of the colon, or nil if not found.
+Handles both RFC-compliant and lenient parsing:
+- Colons inside quoted strings are ignored
+- For malformed params like X-AVAILABLE=09:00-17:00, finds the last colon
+- For values with colons like urn:uuid:foo, finds the first colon after params
+
+Strategy: Collect all unquoted colon positions, then determine which is the separator.
+For parameter values with colons (malformed), the separator is after all param colons."
+  (let ((i 0)
+        (len (length str))
+        (in-quotes nil)
+        (colon-positions nil)
+        (last-equals -1))
+
+    ;; First pass: collect all unquoted colon positions and track last equals
+    (while (< i len)
+      (let ((char (aref str i)))
+        (cond
+         ((eq char ?\")
+          (setq in-quotes (not in-quotes)))
+         ((and (eq char ?=) (not in-quotes))
+          (setq last-equals i))
+         ((and (eq char ?:) (not in-quotes))
+          (push i colon-positions))))
+      (setq i (1+ i)))
+
+    (setq colon-positions (nreverse colon-positions))
+
+    ;; If no colons found, return nil
+    (when (null colon-positions)
+      (error "No value separator colon found"))
+
+    ;; Strategy: Determine if we have evenly-spaced colons (malformed param value)
+    ;; or a clear separator pattern (normal case with URI value)
+    ;; Malformed: X-AVAILABLE=09:00-17:00 has ALL gaps small (< 10 chars)
+    ;; Normal: TYPE=spouse:urn:uuid:foo has large gap before first colon
+    (let ((result nil))
+      (if (< last-equals 0)
+          ;; No equals sign - use first colon
+          (setq result (car colon-positions))
+        ;; Check if we have multiple colons after the equals sign
+        (let ((colons-after-equals (seq-filter (lambda (pos) (> pos last-equals))
+                                               colon-positions)))
+          (if (< (length colons-after-equals) 2)
+              ;; Only one colon after equals - use it
+              (setq result (car colons-after-equals))
+            ;; Multiple colons - check if they're all closely spaced (malformed)
+            ;; or if there's a clear separator (normal)
+            (let* ((gaps nil)
+                   (prev last-equals))
+              ;; Calculate gaps between consecutive colons
+              (dolist (colon-pos colons-after-equals)
+                (push (- colon-pos prev) gaps)
+                (setq prev colon-pos))
+              (setq gaps (nreverse gaps))
+              ;; If first gap is notably larger than average of remaining gaps,
+              ;; it's a normal separator (use first colon)
+              ;; Otherwise, malformed parameter value (use last colon)
+              (let* ((first-gap (car gaps))
+                     (remaining-gaps (cdr gaps))
+                     (avg-remaining (if remaining-gaps
+                                        (/ (apply #'+ remaining-gaps)
+                                           (float (length remaining-gaps)))
+                                      0)))
+                ;; Check if value after first colon looks like a URI
+                (let ((first-colon (car colons-after-equals))
+                      (after-first (substring str (1+ (car colons-after-equals)))))
+                  (if (string-match-p "^\\(https?\\|urn\\|ftp\\|file\\):" after-first)
+                      ;; Value starts with URI scheme - use first colon
+                      (setq result first-colon)
+                    ;; Not a URI - use gap analysis
+                    (if (> first-gap (* 1.5 avg-remaining))
+                        ;; First gap is significantly larger - normal case
+                        (setq result (car colons-after-equals))
+                      ;; Gaps are similar - malformed case
+                      (setq result (car (last colons-after-equals)))))))))))
+      ;; Fallback: if still no result, use first colon
+      (or result (car colon-positions)))))
+
 (defun ecard--parse-property-line (line)
   "Parse a single vCard property LINE.
 Returns a plist (:group GROUP :name NAME :parameters PARAMS :value VALUE)."
-  ;; Group prefix pattern: only valid group names (alphanumeric, underscore, hyphen)
-  ;; This prevents dots in parameter values from being misinterpreted as group separators
-  (unless (string-match "^\\(?:\\([a-zA-Z0-9_-]+\\)\\.\\)?\\([^;:]+\\)\\(?:;\\([^:]*\\)\\)?:\\(.*\\)$" line)
+  ;; First, extract optional group and property name using simple regex
+  ;; Pattern: optional group (alphanumeric, underscore, hyphen), then property name (until ; or :)
+  (unless (string-match "^\\(?:\\([a-zA-Z0-9_-]+\\)\\.\\)?\\([^;:]+\\)\\(.*\\)$" line)
     (signal 'ecard-parse-error (list "Invalid property line" line)))
 
-  (let* ((group (match-string 1 line))
+  (let* ((group (when-let ((g (match-string 1 line))) (downcase g)))  ; RFC 6350: groups are case-insensitive
          (name (upcase (match-string 2 line)))
-         (param-string (match-string 3 line))
-         (value-string (match-string 4 line))
-         (parameters (ecard--parse-parameters param-string))
-         (value (ecard--unescape-value value-string)))
+         (remainder (match-string 3 line))  ; Everything after property name
+         (param-string nil)
+         (value-string nil)
+         (parameters nil)
+         (value nil))
+
+    ;; Parse the remainder to find where parameters end and value begins
+    ;; The value separator is the first unquoted colon
+    (if (string-prefix-p ":" remainder)
+        ;; No parameters, just :value
+        (setq value-string (substring remainder 1))
+      ;; Has parameters: ;params:value
+      (if (string-prefix-p ";" remainder)
+          (let* ((params-and-value (substring remainder 1))  ; Remove leading semicolon
+                 (colon-pos (ecard--find-value-separator params-and-value)))
+            (unless colon-pos
+              (signal 'ecard-parse-error (list "No value separator colon found" line)))
+            (setq param-string (substring params-and-value 0 colon-pos))
+            (setq value-string (substring params-and-value (1+ colon-pos))))
+        (signal 'ecard-parse-error (list "Invalid property line format" line))))
+
+    ;; Parse parameters and unescape value
+    (setq parameters (ecard--parse-parameters param-string))
+    (setq value (ecard--unescape-value value-string))
 
     ;; Parse structured values for N, ADR, ORG, and GENDER (semicolon-separated components)
     (when (member name '("N" "ADR" "ORG" "GENDER"))
-      (setq value (mapcar #'ecard--unescape-value
-                          (split-string value-string ";" nil))))
+      (setq value (ecard--split-on-unescaped-semicolon value-string)))
 
     ;; Parse text-list values for CATEGORIES and NICKNAME (comma-separated components)
     (when (member name '("CATEGORIES" "NICKNAME"))
@@ -434,8 +603,8 @@ E.g., \"TEL\" -> tel, \"CALADRURI\" -> caladruri."
 (defun ecard--is-cardinality-one-property-p (prop-name)
   "Return non-nil if PROP-NAME has cardinality *1 (at most one).
 Per RFC 6350, these properties can appear at most once:
-N, BDAY, ANNIVERSARY, GENDER, REV, PRODID, UID, KIND."
-  (member prop-name '("N" "BDAY" "ANNIVERSARY" "GENDER" "REV"
+VERSION (exactly 1), N, BDAY, ANNIVERSARY, GENDER, REV, PRODID, UID, KIND."
+  (member prop-name '("VERSION" "N" "BDAY" "ANNIVERSARY" "GENDER" "REV"
                       "PRODID" "UID" "KIND")))
 
 (defun ecard--add-property-to-ecard (vc prop-plist)
@@ -566,8 +735,15 @@ Signals `ecard-validation-error' if validation fails."
   (unless (oref vc version)
     (signal 'ecard-validation-error '("Missing VERSION property")))
 
-  (unless (oref vc fn)
-    (signal 'ecard-validation-error '("Missing FN (formatted name) property")))
+  (let ((fn-props (oref vc fn)))
+    (unless fn-props
+      (signal 'ecard-validation-error '("Missing FN (formatted name) property")))
+    ;; Validate FN is not empty
+    (let* ((fn-prop (car fn-props))
+           (fn-value (when fn-prop (oref fn-prop value))))
+      (when (or (null fn-value)
+                (and (stringp fn-value) (string-empty-p fn-value)))
+        (signal 'ecard-validation-error '("FN (formatted name) property cannot be empty")))))
 
   ;; Validate VERSION is 4.0
   (let ((version-prop (car (oref vc version))))
@@ -605,11 +781,19 @@ Signals `ecard-validation-error' if validation fails."
 TEXT can contain one or more vCard 4.0 records.
 Returns a list of ecard objects, even if only one vCard is present.
 Signals `ecard-parse-error' if parsing fails.
-Signals `ecard-validation-error' if required properties are missing."
+Signals `ecard-validation-error' if required properties are missing.
+
+DoS Protection:
+- Maximum property value length: 10000 characters
+- Maximum properties per vCard: 1000"
   (let* ((lines (ecard--unfold-lines text))
          (vcards nil)
          (current-vc nil)
-         (in-ecard nil))
+         (in-ecard nil)
+         (property-count 0)
+         (first-property-seen nil)
+         (max-property-count 1000)
+         (max-value-length 10000))
 
     (dolist (line lines)
       (cond
@@ -617,7 +801,9 @@ Signals `ecard-validation-error' if required properties are missing."
         (when in-ecard
           (signal 'ecard-parse-error '("Nested BEGIN:VCARD not allowed")))
         (setq in-ecard t)
-        (setq current-vc (ecard)))
+        (setq current-vc (ecard))
+        (setq property-count 0)
+        (setq first-property-seen nil))
 
        ((string-match-p "^END:VCARD" line)
         (unless in-ecard
@@ -631,8 +817,35 @@ Signals `ecard-validation-error' if required properties are missing."
        (in-ecard
         ;; Skip empty or whitespace-only lines
         (unless (string-match-p "^[ \t]*$" line)
+          ;; DoS protection: limit property count
+          (when (>= property-count max-property-count)
+            (signal 'ecard-validation-error
+                    (list (format "Too many properties (max %d allowed for DoS protection)"
+                                  max-property-count))))
+          (setq property-count (1+ property-count))
+
           (let ((prop-plist (ecard--parse-property-line line)))
-            (ecard--add-property-to-ecard current-vc prop-plist))))))
+            (let ((prop-name (plist-get prop-plist :name))
+                  (prop-value (plist-get prop-plist :value)))
+
+              ;; DoS protection: limit property value length
+              (let ((value-length (if (listp prop-value)
+                                      (apply #'+ (mapcar #'length prop-value))
+                                    (length prop-value))))
+                (when (> value-length max-value-length)
+                  (signal 'ecard-validation-error
+                          (list (format "Property value too long (%d chars, max %d allowed for DoS protection)"
+                                        value-length max-value-length)))))
+
+              ;; Validate VERSION is the first property after BEGIN
+              (unless first-property-seen
+                (setq first-property-seen t)
+                (unless (string= prop-name "VERSION")
+                  (signal 'ecard-validation-error
+                          (list (format "VERSION must be the first property after BEGIN:VCARD, got %s"
+                                        prop-name)))))
+
+              (ecard--add-property-to-ecard current-vc prop-plist)))))))
 
     (when in-ecard
       (signal 'ecard-parse-error '("Missing END:VCARD")))

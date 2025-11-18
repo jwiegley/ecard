@@ -191,20 +191,39 @@ All standard vCard 4.0 properties are supported:
 
 ## Testing
 
-Run the test suite:
+The ecard project has **comprehensive test coverage** with **395+ tests** covering:
+- RFC 6350 vCard 4.0 compliance (113 tests)
+- CardDAV protocol (RFC 6352) (52 tests)
+- org-contacts integration (89 tests)
+- BBDB compatibility and migration (67 tests)
+- Display, tools, and utilities (74 tests)
+
+### Quick Start
 
 ```bash
-# All tests
-emacs -batch -L . -l ecard.el -l ecard-test.el -f ert-run-tests-batch-and-exit
+# Using Eask (recommended)
+eask install-deps
+eask run script test              # Run all tests
+eask run script test-quick        # Quick smoke tests
+eask run script test-compliance   # RFC compliance tests
 
-# Interactive testing (for debugging)
-emacs -l ecard.el -l ecard-test.el
-# Then: M-x ert RET t RET
-
-# Single test
+# Using Emacs directly
 emacs -batch -L . -l ecard.el -l ecard-test.el \
-  --eval "(ert-run-tests-batch-and-exit 'ecard-parse-simple-test)"
+  -f ert-run-tests-batch-and-exit
 ```
+
+### Test Infrastructure
+
+The project includes:
+- **Custom test framework** with assertion macros and test data generators
+- **RFC compliance testing** with automated requirement tracking
+- **Performance benchmarks** and security validation
+- **CI/CD integration** with GitHub Actions
+- **Pre-commit hooks** for quick validation
+
+For complete testing documentation, see:
+- **[TESTING.md](TESTING.md)** - Comprehensive testing guide
+- **[TEST-COVERAGE.md](TEST-COVERAGE.md)** - Detailed coverage analysis
 
 ## Contributing
 
