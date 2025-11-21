@@ -235,7 +235,7 @@ Contributions are welcome! Please ensure:
 
 ## License
 
-[Your chosen license]
+GPL3
 
 ## See Also
 
