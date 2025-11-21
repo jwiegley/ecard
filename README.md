@@ -221,10 +221,6 @@ The project includes:
 - **CI/CD integration** with GitHub Actions
 - **Pre-commit hooks** for quick validation
 
-For complete testing documentation, see:
-- **[TESTING.md](TESTING.md)** - Comprehensive testing guide
-- **[TEST-COVERAGE.md](TEST-COVERAGE.md)** - Detailed coverage analysis
-
 ## Contributing
 
 Contributions are welcome! Please ensure:
