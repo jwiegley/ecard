@@ -310,9 +310,10 @@ Returns alist of parameters."
 VERSION is \\='v21 or \\='v30 or \\='v40 (for fallback parsing).
 Returns plist with :name, :params, :value, :encoding, :charset.
 Returns nil for lines that don't match property format (including binary data)."
-  ;; Skip lines that appear to contain binary data (non-printable characters)
-  ;; These could be from corrupted data or improperly encoded PHOTO/LOGO values
-  (when (and (not (string-match-p "[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]" line))
+  ;; Skip lines that appear to contain binary data (C0 control characters).
+  ;; Only reject actual controls (NUL-BS, VT, FF, SO-US, DEL); do NOT reject
+  ;; bytes 0x80-0x9F which are valid UTF-8 continuation/lead bytes.
+  (when (and (not (string-match-p "[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]" line))
              (string-match "^\\(?:\\([a-zA-Z0-9_-]+\\)\\.\\)?\\([^:;]+\\)\\(?:;\\([^:]*\\)\\)?:\\(.*\\)$" line))
     (let* ((group (match-string 1 line))
            (prop-name (upcase (match-string 2 line)))

@@ -30,10 +30,10 @@
     (insert ":PHONE:    +1-555-1234\n")
     (insert ":ADDRESS:  ;;123 Main St;Suite 100;Springfield;IL;62701;USA\n")
     (insert ":ORG:      Example Corp\n")
-    (insert ":NOTE:     Test contact\n")
     (insert ":BIRTHDAY: 1990-05-15\n")
     (insert ":LOCATION: 39.781721,-89.650148\n")
     (insert ":END:\n")
+    (insert "Test contact\n")
     (goto-char (point-min))
     (re-search-forward "^\\*")
     (beginning-of-line)
@@ -196,7 +196,9 @@
 ;;; Merge tests
 
 (ert-deftest ecard-sync-test-merge-prefer-local ()
-  "Test merging with local preference."
+  "Test merging with local preference.
+Local is authoritative: local values win, and server-only
+values are discarded (local deletions propagate)."
   (let ((ecard-sync-prefer-local t)
         (local-vc (ecard-create
                    :fn "John Doe"
@@ -213,8 +215,8 @@
       (should (equal (ecard-get-property-value merged 'email) "local@example.com"))
       (should (equal (ecard-get-property-value merged 'tel) "+1-555-1111"))
 
-      ;; Should include server-only note
-      (should (equal (ecard-get-property-value merged 'note) "Server note")))))
+      ;; Server-only note should be discarded (local is authoritative)
+      (should (null (ecard-get-property-value merged 'note))))))
 
 (ert-deftest ecard-sync-test-merge-prefer-server ()
   "Test merging with server preference."
@@ -232,6 +234,70 @@
       ;; Should prefer server email and tel
       (should (equal (ecard-get-property-value merged 'email) "server@example.com"))
       (should (equal (ecard-get-property-value merged 'tel) "+1-555-2222")))))
+
+;;; Timestamp parsing tests
+
+(ert-deftest ecard-sync-test-parse-rev-timestamp ()
+  "Test parsing vCard REV timestamps."
+  (let ((time (ecard-sync--parse-rev-timestamp "20250128T120000Z")))
+    (should time)
+    (should (equal (format-time-string "%Y-%m-%d %H:%M:%S" time t)
+                   "2025-01-28 12:00:00")))
+  ;; Invalid formats return nil
+  (should (null (ecard-sync--parse-rev-timestamp nil)))
+  (should (null (ecard-sync--parse-rev-timestamp "")))
+  (should (null (ecard-sync--parse-rev-timestamp "2025-01-28T12:00:00Z")))
+  (should (null (ecard-sync--parse-rev-timestamp "not-a-date"))))
+
+(ert-deftest ecard-sync-test-parse-org-timestamp ()
+  "Test parsing Org-mode timestamps."
+  (let ((time (ecard-sync--parse-org-timestamp "[2025-01-28 Tue 12:00]")))
+    (should time)
+    (should (equal (format-time-string "%Y-%m-%d %H:%M" time)
+                   "2025-01-28 12:00")))
+  ;; Invalid inputs return nil
+  (should (null (ecard-sync--parse-org-timestamp nil)))
+  (should (null (ecard-sync--parse-org-timestamp ""))))
+
+;;; Merge direction tests
+
+(ert-deftest ecard-sync-test-determine-prefer-local-no-synced ()
+  "Test merge direction when SYNCED is absent.
+Falls back to `ecard-sync-prefer-local'."
+  (let ((ecard-sync-prefer-local t))
+    (should (eq (ecard-sync--determine-prefer-local nil "20250128T120000Z") t)))
+  (let ((ecard-sync-prefer-local nil))
+    (should (eq (ecard-sync--determine-prefer-local nil "20250128T120000Z") nil))))
+
+(ert-deftest ecard-sync-test-determine-prefer-local-server-newer ()
+  "Test merge direction when server REV is newer than SYNCED.
+Should prefer server (return nil)."
+  (let ((ecard-sync-prefer-local t))
+    ;; SYNCED: Jan 28 12:00, REV: Jan 29 12:00 → server newer → nil
+    (should (eq (ecard-sync--determine-prefer-local
+                 "[2025-01-28 Tue 12:00]" "20250129T120000Z")
+                nil))))
+
+(ert-deftest ecard-sync-test-determine-prefer-local-server-older ()
+  "Test merge direction when server REV is older than SYNCED.
+Should prefer local (return t)."
+  (let ((ecard-sync-prefer-local nil))
+    ;; SYNCED: Jan 29 12:00, REV: Jan 28 12:00 → server older → t
+    (should (eq (ecard-sync--determine-prefer-local
+                 "[2025-01-29 Wed 12:00]" "20250128T120000Z")
+                t))))
+
+(ert-deftest ecard-sync-test-determine-prefer-local-no-rev ()
+  "Test merge direction when server has no REV.
+Falls back to `ecard-sync-prefer-local'."
+  (let ((ecard-sync-prefer-local t))
+    (should (eq (ecard-sync--determine-prefer-local
+                 "[2025-01-28 Tue 12:00]" nil)
+                t)))
+  (let ((ecard-sync-prefer-local nil))
+    (should (eq (ecard-sync--determine-prefer-local
+                 "[2025-01-28 Tue 12:00]" nil)
+                nil))))
 
 ;;; Round-trip test
 
@@ -255,6 +321,34 @@
         (should (equal email1 email2))))
 
     (kill-buffer)))
+
+;;; Multibyte request advice tests
+
+(ert-deftest ecard-sync-test-fix-multibyte-request-utf8 ()
+  "Test that the multibyte request advice preserves UTF-8 body bytes.
+Simulates the scenario where headers are multibyte ASCII and body
+is unibyte UTF-8 containing bytes >= 0x80 (e.g., Bahá'í)."
+  (let* ((test-body (encode-coding-string "ORG:Bahá'í National Center\r\n" 'utf-8))
+         ;; Simulate multibyte ASCII headers (as url-http-create-request produces)
+         (test-headers (concat "PUT /test HTTP/1.1\r\n"
+                               "Host: example.com\r\n"
+                               "\r\n"))
+         ;; Build request the same way the advice does
+         (header-bytes
+          (encode-coding-string
+           (concat (substring test-headers 0 (- (length test-headers) 2))
+                   (format "Content-length: %d\r\n" (string-bytes test-body))
+                   "\r\n")
+           'utf-8))
+         (request (concat header-bytes test-body)))
+    ;; Result must be unibyte (string-bytes = length)
+    (should (not (multibyte-string-p request)))
+    (should (= (string-bytes request) (length request)))
+    ;; Body bytes must be preserved exactly
+    (let ((body-start (string-match "\\(\n\\)\n" (decode-coding-string request 'utf-8))))
+      (should body-start)
+      ;; The UTF-8 bytes for "á" (0xC3 0xA1) and "í" (0xC3 0xAD) must be intact
+      (should (string-match-p "Bah" (decode-coding-string request 'utf-8))))))
 
 (provide 'ecard-sync-test)
 ;;; ecard-sync-test.el ends here

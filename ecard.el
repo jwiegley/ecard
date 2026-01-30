@@ -840,9 +840,10 @@ DoS Protection:
        (in-ecard
         ;; Skip empty or whitespace-only lines
         (unless (string-match-p "^[ \t]*$" line)
-          ;; Skip lines with binary data (non-printable control characters)
-          ;; These could be from corrupted data or improperly encoded PHOTO/LOGO values
-          (unless (string-match-p "[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]" line)
+          ;; Skip lines with binary data (C0 control characters).
+          ;; Only reject actual controls; do NOT reject bytes 0x80-0x9F
+          ;; which are valid UTF-8 continuation/lead bytes.
+          (unless (string-match-p "[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]" line)
             ;; DoS protection: limit property count
             (when (>= property-count max-property-count)
               (signal 'ecard-validation-error

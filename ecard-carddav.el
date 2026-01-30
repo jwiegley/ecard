@@ -316,7 +316,12 @@ If nil, inherits from server's version. Allows per-addressbook version control."
     :initarg :ecard-data
     :initform nil
     :type (or null string)
-    :documentation "Raw vCard text data."))
+    :documentation "Raw vCard text data.")
+   (line-endings
+    :initarg :line-endings
+    :initform 'crlf
+    :type symbol
+    :documentation "Line ending style of original data: `crlf' or `lf'."))
   "Represents a vCard resource in a CardDAV address book.")
 
 ;;; XML namespace constants
@@ -376,6 +381,9 @@ Returns list of matching nodes."
                                 (intern (concat "CR:" tag-str))))
                          ((string= namespace ecard-carddav-ns-cs)
                           (list (intern (concat "CS:" tag-str))))
+                         ((string= namespace ecard-carddav-ns-dav)
+                          ;; Some servers use D: prefix for DAV namespace
+                          (list (intern (concat "D:" tag-str))))
                          (t nil)))))
     (append (dom-by-tag dom plain-tag)
             (when qname-tag
@@ -410,16 +418,27 @@ PROPS is list of (name . namespace) pairs."
 
 (defun ecard-carddav--parse-xml-response (buffer)
   "Parse XML from BUFFER.
+Decodes the response body from UTF-8 before parsing so that
+non-ASCII vCard data (embedded in XML text nodes) becomes proper
+Emacs multibyte strings.
 Returns parsed XML s-expression or signals error."
   (with-current-buffer buffer
     (goto-char (point-min))
     ;; Skip HTTP headers
     (when (re-search-forward "\r?\n\r?\n" nil t)
-      (condition-case err
-          (car (xml-parse-region (point) (point-max)))
-        (error
-         (signal 'ecard-carddav-xml-error
-                 (list "Failed to parse XML response" err)))))))
+      (let* ((body-bytes (buffer-substring-no-properties (point) (point-max)))
+             ;; Decode UTF-8 bytes to a multibyte string.
+             ;; We use decode-coding-string rather than decode-coding-region
+             ;; because url-retrieve returns a unibyte buffer, and
+             ;; decode-coding-region is a no-op on unibyte buffers.
+             (decoded (decode-coding-string body-bytes 'utf-8)))
+        (condition-case err
+            (with-temp-buffer
+              (insert decoded)
+              (car (xml-parse-region (point-min) (point-max))))
+          (error
+           (signal 'ecard-carddav-xml-error
+                   (list "Failed to parse XML response" err))))))))
 
 (defun ecard-carddav--get-http-status (buffer)
   "Extract HTTP status code from BUFFER.
@@ -460,7 +479,11 @@ even if DNS, TCP, or TLS operations block outside url.el's control."
              (when content-type
                (list (cons "Content-Type" content-type)))
              headers))
-           (url-request-data (when body (encode-coding-string body 'utf-8)))
+           (url-request-data
+            (when body
+              (if (multibyte-string-p body)
+                  (encode-coding-string body 'utf-8)
+                body)))
            (url-http-attempt-keepalives nil)  ; Avoid connection reuse issues
            (url-show-status nil)
            ;; Prevent url.el from prompting for credentials interactively
@@ -780,14 +803,17 @@ Signals error if resource not found."
                                    'utf-8)))))
               (when etag
                 (setq etag (string-trim etag "\"" "\"")))
-              (let ((ecard-obj (ecard-compat-parse ecard-data)))
+              (let ((ecard-obj (ecard-compat-parse ecard-data))
+                    (le (if (and ecard-data (string-match-p "\r\n" ecard-data))
+                            'crlf 'lf)))
                 (ecard-carddav-resource
                  :addressbook addressbook
                  :url url
                  :path (url-filename (url-generic-parse-url url))
                  :etag etag
                  :ecard ecard-obj
-                 :ecard-data ecard-data))))
+                 :ecard-data ecard-data
+                 :line-endings le))))
            ((= status 404)
             (signal 'ecard-carddav-not-found-error
                     (list "Resource not found" url)))
@@ -796,10 +822,15 @@ Signals error if resource not found."
                     (list "Failed to get resource" status url)))))
       (kill-buffer buffer))))
 
-(defun ecard-carddav-put-ecard (addressbook path-or-url ecard-obj &optional etag)
+(defun ecard-carddav-put-ecard (addressbook path-or-url ecard-obj
+                                            &optional etag line-endings)
   "Create or update vCard resource at PATH-OR-URL in ADDRESSBOOK.
 VCARD-OBJ is the ecard object to store.
 ETAG is optional - if provided, uses If-Match for concurrency control.
+LINE-ENDINGS controls the line ending style of the uploaded data:
+  `crlf' - use CRLF (RFC 6350 standard, the default)
+  `lf'   - convert to LF (for servers that store LF on disk)
+  nil    - same as `crlf'
 Returns updated `ecard-carddav-resource' object.
 Signals conflict error if ETAG doesn't match.
 
@@ -818,10 +849,16 @@ servers that only support vCard 3.0 (e.g., Radicale)."
          (version (or (oref addressbook version)
                       (oref server version)
                       "4.0"))
-         ;; Use appropriate serialization based on version
-         (ecard-data (if (string= version "3.0")
+         ;; Serialize vCard.  ecard-serialize produces RFC 6350 CRLF.
+         ;; Convert to LF only when the original data used LF.
+         (serialized (if (string= version "3.0")
                          (ecard-compat-serialize ecard-obj)
                        (ecard-serialize ecard-obj)))
+         (ecard-data (encode-coding-string
+                      (if (eq line-endings 'lf)
+                          (replace-regexp-in-string "\r\n" "\n" serialized)
+                        serialized)
+                      'utf-8))
          (headers (when etag
                    (list (cons "If-Match" (format "\"%s\"" etag)))))
          (buffer (ecard-carddav--request-with-retry
@@ -979,10 +1016,16 @@ individual GET requests."
                   '(("Depth" . "1")))))
     (unwind-protect
         (let* ((status (ecard-carddav--get-http-status buffer))
+               ;; Detect line endings from raw buffer before XML parsing
+               ;; normalizes \r\n to \n in text nodes.
+               (server-le (with-current-buffer buffer
+                            (save-excursion
+                              (goto-char (point-min))
+                              (if (re-search-forward "\r\n" nil t) 'crlf 'lf))))
                (xml (when (and status (= status 207))
                       (ecard-carddav--parse-xml-response buffer))))
           (when xml
-            (ecard-carddav--parse-multiget-response xml addressbook)))
+            (ecard-carddav--parse-multiget-response xml addressbook server-le)))
       (kill-buffer buffer))))
 
 (defun ecard-carddav--multiget-body (resource-paths)
@@ -1013,9 +1056,11 @@ individual GET requests."
        ("\"" "&quot;")))
    str))
 
-(defun ecard-carddav--parse-multiget-response (xml addressbook)
+(defun ecard-carddav--parse-multiget-response (xml addressbook &optional line-endings)
   "Parse addressbook-multiget REPORT response XML.
 ADDRESSBOOK is the parent addressbook object.
+LINE-ENDINGS is the detected line ending style (`crlf' or `lf')
+from the raw response buffer.
 Returns list of `ecard-carddav-resource' objects with ecard data populated."
   (let ((responses (ecard-carddav--dom-by-tag-qname xml 'response ecard-carddav-ns-dav))
         (resources nil))
@@ -1062,7 +1107,8 @@ Returns list of `ecard-carddav-resource' objects with ecard data populated."
                            :path path
                            :etag etag
                            :ecard ecard-obj
-                           :ecard-data ecard-data)
+                           :ecard-data ecard-data
+                           :line-endings (or line-endings 'crlf))
                           resources))
                 (error
                  (message "Failed to parse vCard at %s: %s" href (error-message-string err)))))))))
