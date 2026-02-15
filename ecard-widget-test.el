@@ -509,5 +509,460 @@
       ;; Callback should have been called
       (should callback-called))))
 
+;;; Helper function tests
+
+(ert-deftest ecard-widget-test-parse-type-value-single ()
+  "Test parsing a single type value."
+  (should (string= (ecard-widget--parse-type-value "home" '("home" "work"))
+                   "home")))
+
+(ert-deftest ecard-widget-test-parse-type-value-comma-separated ()
+  "Test parsing comma-separated type values."
+  (should (string= (ecard-widget--parse-type-value "home,pref" '("home" "work"))
+                   "home")))
+
+(ert-deftest ecard-widget-test-parse-type-value-list ()
+  "Test parsing list of type values."
+  (should (string= (ecard-widget--parse-type-value '("work" "pref") '("home" "work"))
+                   "work")))
+
+(ert-deftest ecard-widget-test-parse-type-value-no-match ()
+  "Test parsing type value with no match returns 'other'."
+  (should (string= (ecard-widget--parse-type-value "unknown" '("home" "work"))
+                   "other")))
+
+(ert-deftest ecard-widget-test-parse-type-value-nil ()
+  "Test parsing nil type value returns 'other'."
+  (should (string= (ecard-widget--parse-type-value nil '("home" "work"))
+                   "other")))
+
+(ert-deftest ecard-widget-test-parse-type-value-case-insensitive ()
+  "Test parsing type value case-insensitively."
+  (should (string= (ecard-widget--parse-type-value "HOME" '("home" "work"))
+                   "HOME")))
+
+(ert-deftest ecard-widget-test-get-type-param-from-prop ()
+  "Test extracting TYPE parameter from an ecard-property."
+  (let ((prop (ecard-property :name "TEL"
+                              :value "+1-555-1234"
+                              :parameters '(("TYPE" . "cell")))))
+    (should (string= (ecard-widget--get-type-param prop '("work" "home" "cell"))
+                     "cell"))))
+
+(ert-deftest ecard-widget-test-get-type-param-nil-prop ()
+  "Test extracting TYPE parameter from nil property returns 'other'."
+  (should (string= (ecard-widget--get-type-param nil '("home" "work"))
+                   "other")))
+
+(ert-deftest ecard-widget-test-get-type-param-lowercase-key ()
+  "Test extracting TYPE parameter with lowercase key."
+  (let ((prop (ecard-property :name "TEL"
+                              :value "+1-555-1234"
+                              :parameters '(("type" . "home")))))
+    (should (string= (ecard-widget--get-type-param prop '("home" "work"))
+                     "home"))))
+
+(ert-deftest ecard-widget-test-make-type-param ()
+  "Test creating type parameter alist."
+  (let ((result (ecard-widget--make-type-param "work")))
+    (should (equal result '(("TYPE" . "work"))))))
+
+(ert-deftest ecard-widget-test-make-type-param-nil ()
+  "Test creating type parameter with nil returns nil."
+  (should (null (ecard-widget--make-type-param nil))))
+
+(ert-deftest ecard-widget-test-make-type-param-empty ()
+  "Test creating type parameter with empty string returns nil."
+  (should (null (ecard-widget--make-type-param ""))))
+
+(ert-deftest ecard-widget-test-safe-value-string ()
+  "Test safe-value with string input."
+  (should (string= (ecard-widget--safe-value "hello") "hello")))
+
+(ert-deftest ecard-widget-test-safe-value-nil ()
+  "Test safe-value with nil returns empty string."
+  (should (string= (ecard-widget--safe-value nil) "")))
+
+(ert-deftest ecard-widget-test-safe-value-list-of-strings ()
+  "Test safe-value with list of strings returns first."
+  (should (string= (ecard-widget--safe-value '("first" "second")) "first")))
+
+(ert-deftest ecard-widget-test-safe-value-empty-list ()
+  "Test safe-value with empty list returns empty string."
+  (should (string= (ecard-widget--safe-value '()) "")))
+
+(ert-deftest ecard-widget-test-safe-value-list-of-non-strings ()
+  "Test safe-value with list of non-strings returns empty string."
+  (should (string= (ecard-widget--safe-value '(1 2 3)) "")))
+
+(ert-deftest ecard-widget-test-safe-value-number ()
+  "Test safe-value with number formats to string."
+  (should (string= (ecard-widget--safe-value 42) "42")))
+
+;;; Widget rendering tests
+
+(ert-deftest ecard-widget-test-insert-group-header ()
+  "Test group header insertion."
+  (with-temp-buffer
+    (ecard-widget--insert-group-header "Test Section" 0)
+    (let ((content (buffer-string)))
+      (should (string-match-p "Test Section" content))
+      (should (string-match-p ":" content)))))
+
+(ert-deftest ecard-widget-test-insert-group-header-indent ()
+  "Test group header insertion with indent level."
+  (with-temp-buffer
+    (ecard-widget--insert-group-header "Test Section" 2)
+    (let ((content (buffer-string)))
+      ;; Should have 4 spaces (2 * 2)
+      (should (string-match-p "^    " content)))))
+
+(ert-deftest ecard-widget-test-insert-field-label ()
+  "Test field label insertion."
+  (with-temp-buffer
+    (ecard-widget--insert-field-label "Email" 1)
+    (let ((content (buffer-string)))
+      (should (string-match-p "Email" content))
+      (should (string-match-p ": " content)))))
+
+(ert-deftest ecard-widget-test-create-field ()
+  "Test editable field widget creation."
+  (with-temp-buffer
+    (let ((w (ecard-widget--create-field "Test Label" "test value" 1 30)))
+      (should w)
+      (should (widgetp w))
+      (should (equal (widget-value w) "test value")))))
+
+(ert-deftest ecard-widget-test-create-field-nil-value ()
+  "Test editable field widget with nil value defaults to empty string."
+  (with-temp-buffer
+    (let ((w (ecard-widget--create-field "Test" nil)))
+      (should (equal (widget-value w) "")))))
+
+(ert-deftest ecard-widget-test-create-text-area ()
+  "Test text area widget creation."
+  (with-temp-buffer
+    (let ((w (ecard-widget--create-text-area "Notes" "Some text" 1)))
+      (should w)
+      (should (widgetp w))
+      (should (equal (widget-value w) "Some text")))))
+
+(ert-deftest ecard-widget-test-create-text-area-nil-value ()
+  "Test text area widget with nil value defaults to empty string."
+  (with-temp-buffer
+    (let ((w (ecard-widget--create-text-area "Notes" nil)))
+      (should (equal (widget-value w) "")))))
+
+(ert-deftest ecard-widget-test-create-readonly ()
+  "Test read-only display insertion."
+  (with-temp-buffer
+    (ecard-widget--create-readonly "UID" "test-uid-123" 0)
+    (let ((content (buffer-string)))
+      (should (string-match-p "UID" content))
+      (should (string-match-p "test-uid-123" content)))))
+
+(ert-deftest ecard-widget-test-create-readonly-nil-value ()
+  "Test read-only display with nil value."
+  (with-temp-buffer
+    (ecard-widget--create-readonly "UID" nil 0)
+    (let ((content (buffer-string)))
+      (should (string-match-p "UID" content)))))
+
+(ert-deftest ecard-widget-test-create-choice ()
+  "Test choice menu widget creation."
+  (with-temp-buffer
+    (let ((w (ecard-widget--create-choice "Type" "home" '("home" "work" "other"))))
+      (should w)
+      (should (widgetp w))
+      (should (equal (widget-value w) "home")))))
+
+(ert-deftest ecard-widget-test-create-choice-nil-value ()
+  "Test choice menu with nil value defaults to first choice."
+  (with-temp-buffer
+    (let ((w (ecard-widget--create-choice "Type" nil '("home" "work"))))
+      (should (equal (widget-value w) "home")))))
+
+;;; Section creation tests
+
+(ert-deftest ecard-widget-test-create-name-section ()
+  "Test name section widget creation."
+  (with-temp-buffer
+    (let* ((n-prop (ecard-property :name "N"
+                                   :value '("Doe" "John" "W" "Dr." "Jr.")))
+           (widgets (ecard-widget--create-name-section n-prop)))
+      (should widgets)
+      ;; Should have widgets for given, family, additional, prefix, suffix
+      (should (assq 'n-given widgets))
+      (should (assq 'n-family widgets))
+      (should (assq 'n-additional widgets))
+      (should (assq 'n-prefix widgets))
+      (should (assq 'n-suffix widgets))
+      ;; Check values
+      (should (equal (widget-value (cdr (assq 'n-family widgets))) "Doe"))
+      (should (equal (widget-value (cdr (assq 'n-given widgets))) "John")))))
+
+(ert-deftest ecard-widget-test-create-name-section-nil ()
+  "Test name section with nil property."
+  (with-temp-buffer
+    (let ((widgets (ecard-widget--create-name-section nil)))
+      (should widgets)
+      ;; All fields should default to empty
+      (should (equal (widget-value (cdr (assq 'n-given widgets))) ""))
+      (should (equal (widget-value (cdr (assq 'n-family widgets))) "")))))
+
+(ert-deftest ecard-widget-test-create-multi-entry ()
+  "Test multi-entry widget creation."
+  (with-temp-buffer
+    (let ((widgets (ecard-widget--create-multi-entry
+                    0 '("work" "home" "other") "home" "test@example.com" 35 "email")))
+      (should widgets)
+      ;; Should have type and value widgets
+      (should (assq 'email-0-type widgets))
+      (should (assq 'email-0-value widgets))
+      ;; Check values
+      (should (equal (widget-value (cdr (assq 'email-0-type widgets))) "home"))
+      (should (equal (widget-value (cdr (assq 'email-0-value widgets)))
+                     "test@example.com")))))
+
+(ert-deftest ecard-widget-test-create-adr-section ()
+  "Test address section widget creation."
+  (with-temp-buffer
+    (let* ((adr-prop (ecard-property :name "ADR"
+                                     :parameters '(("TYPE" . "home"))
+                                     :value '("" "" "123 Main St" "City" "ST" "12345" "USA")))
+           (widgets (ecard-widget--create-adr-section (list adr-prop))))
+      (should widgets)
+      (should (assq 'adr-count widgets))
+      (should (= (cdr (assq 'adr-count widgets)) 1))
+      (should (assq 'adr-0-street widgets))
+      (should (assq 'adr-0-city widgets))
+      (should (equal (widget-value (cdr (assq 'adr-0-street widgets))) "123 Main St"))
+      (should (equal (widget-value (cdr (assq 'adr-0-city widgets))) "City")))))
+
+(ert-deftest ecard-widget-test-create-adr-section-empty ()
+  "Test address section with no addresses creates one empty entry."
+  (with-temp-buffer
+    (let ((widgets (ecard-widget--create-adr-section nil)))
+      (should widgets)
+      (should (= (cdr (assq 'adr-count widgets)) 1))
+      (should (equal (widget-value (cdr (assq 'adr-0-street widgets))) "")))))
+
+(ert-deftest ecard-widget-test-create-org-section ()
+  "Test organization section widget creation."
+  (with-temp-buffer
+    (let ((ecard-obj (ecard-create :fn "Test")))
+      (setf (ecard-org ecard-obj)
+            (list (ecard-property :name "ORG" :value "ACME Corp")))
+      (setf (ecard-title ecard-obj)
+            (list (ecard-property :name "TITLE" :value "Engineer")))
+      (setf (ecard-role ecard-obj)
+            (list (ecard-property :name "ROLE" :value "Developer")))
+      (let ((widgets (ecard-widget--create-org-section ecard-obj)))
+        (should widgets)
+        (should (assq 'org widgets))
+        (should (assq 'title widgets))
+        (should (assq 'role widgets))
+        (should (equal (widget-value (cdr (assq 'org widgets))) "ACME Corp"))
+        (should (equal (widget-value (cdr (assq 'title widgets))) "Engineer"))
+        (should (equal (widget-value (cdr (assq 'role widgets))) "Developer"))))))
+
+(ert-deftest ecard-widget-test-create-org-section-empty ()
+  "Test organization section with no data."
+  (with-temp-buffer
+    (let ((ecard-obj (ecard-create :fn "Test")))
+      (let ((widgets (ecard-widget--create-org-section ecard-obj)))
+        (should widgets)
+        (should (equal (widget-value (cdr (assq 'org widgets))) ""))))))
+
+(ert-deftest ecard-widget-test-create-url-section ()
+  "Test URL section widget creation."
+  (with-temp-buffer
+    (let ((ecard-obj (ecard-create :fn "Test")))
+      (setf (ecard-url ecard-obj)
+            (list (ecard-property :name "URL" :value "https://example.com")
+                  (ecard-property :name "URL" :value "https://blog.example.com")))
+      (let ((widgets (ecard-widget--create-url-section ecard-obj)))
+        (should widgets)
+        (should (assq 'url-count widgets))
+        (should (= (cdr (assq 'url-count widgets)) 2))
+        (should (assq 'url-0 widgets))
+        (should (assq 'url-1 widgets))
+        (should (equal (widget-value (cdr (assq 'url-0 widgets)))
+                       "https://example.com"))))))
+
+(ert-deftest ecard-widget-test-create-url-section-empty ()
+  "Test URL section with no URLs creates one empty entry."
+  (with-temp-buffer
+    (let ((ecard-obj (ecard-create :fn "Test")))
+      (let ((widgets (ecard-widget--create-url-section ecard-obj)))
+        (should widgets)
+        (should (= (cdr (assq 'url-count widgets)) 1))
+        (should (equal (widget-value (cdr (assq 'url-0 widgets))) ""))))))
+
+;;; Value extraction tests (additional)
+
+(ert-deftest ecard-widget-test-extract-tels ()
+  "Test extracting telephone values from widgets."
+  (let ((ecard-obj (ecard-create :fn "Test")))
+    (setf (ecard-tel ecard-obj)
+          (list (ecard-property :name "TEL"
+                                :parameters '(("TYPE" . "work"))
+                                :value "+1-555-0100")
+                (ecard-property :name "TEL"
+                                :parameters '(("TYPE" . "cell"))
+                                :value "+1-555-0101")))
+    (with-temp-buffer
+      (ecard-widget-create ecard-obj)
+      (let ((tels (ecard-widget--extract-tels)))
+        (should (= (length tels) 2))
+        (should (equal (ecard-property-value (car tels)) "+1-555-0100"))
+        (should (equal (ecard-property-value (cadr tels)) "+1-555-0101"))))))
+
+(ert-deftest ecard-widget-test-extract-tels-empty ()
+  "Test extracting telephone values when none entered."
+  (let ((ecard-obj (ecard-create :fn "Test")))
+    (with-temp-buffer
+      (ecard-widget-create ecard-obj)
+      (let ((tels (ecard-widget--extract-tels)))
+        (should (null tels))))))
+
+(ert-deftest ecard-widget-test-extract-addresses ()
+  "Test extracting address values from widgets."
+  (let ((ecard-obj (ecard-create :fn "Test")))
+    (setf (ecard-adr ecard-obj)
+          (list (ecard-property :name "ADR"
+                                :parameters '(("TYPE" . "home"))
+                                :value '("" "" "123 Main St" "City" "ST" "12345" "US"))))
+    (with-temp-buffer
+      (ecard-widget-create ecard-obj)
+      (let ((addrs (ecard-widget--extract-addresses)))
+        (should (= (length addrs) 1))
+        (let ((val (ecard-property-value (car addrs))))
+          (should (equal (nth 2 val) "123 Main St"))
+          (should (equal (nth 3 val) "City")))))))
+
+(ert-deftest ecard-widget-test-extract-addresses-empty ()
+  "Test extracting addresses when none entered."
+  (let ((ecard-obj (ecard-create :fn "Test")))
+    (with-temp-buffer
+      (ecard-widget-create ecard-obj)
+      (let ((addrs (ecard-widget--extract-addresses)))
+        (should (null addrs))))))
+
+(ert-deftest ecard-widget-test-extract-urls ()
+  "Test extracting URL values from widgets."
+  (let ((ecard-obj (ecard-create :fn "Test")))
+    (setf (ecard-url ecard-obj)
+          (list (ecard-property :name "URL" :value "https://example.com")))
+    (with-temp-buffer
+      (ecard-widget-create ecard-obj)
+      (let ((urls (ecard-widget--extract-urls)))
+        (should (= (length urls) 1))
+        (should (equal (ecard-property-value (car urls)) "https://example.com"))))))
+
+(ert-deftest ecard-widget-test-extract-urls-empty ()
+  "Test extracting URLs when none entered."
+  (let ((ecard-obj (ecard-create :fn "Test")))
+    (with-temp-buffer
+      (ecard-widget-create ecard-obj)
+      (let ((urls (ecard-widget--extract-urls)))
+        (should (null urls))))))
+
+;;; Get-value comprehensive tests
+
+(ert-deftest ecard-widget-test-get-value-no-ecard ()
+  "Test get-value errors when no ecard is associated."
+  (with-temp-buffer
+    (should-error (ecard-widget-get-value))))
+
+(ert-deftest ecard-widget-test-get-value-urls ()
+  "Test extracting URL values from widget form."
+  (let ((ecard-obj (ecard-create :fn "Test")))
+    (setf (ecard-url ecard-obj)
+          (list (ecard-property :name "URL" :value "https://example.com")))
+    (with-temp-buffer
+      (ecard-widget-create ecard-obj)
+      (let ((result (ecard-widget-get-value)))
+        (should (= (length (ecard-url result)) 1))
+        (should (equal (ecard-property-value (car (ecard-url result)))
+                       "https://example.com"))))))
+
+(ert-deftest ecard-widget-test-get-value-role ()
+  "Test extracting role value from widget form."
+  (let ((ecard-obj (ecard-create :fn "Test")))
+    (setf (ecard-role ecard-obj)
+          (list (ecard-property :name "ROLE" :value "Developer")))
+    (with-temp-buffer
+      (ecard-widget-create ecard-obj)
+      ;; Modify role
+      (let ((role-w (cdr (assq 'role ecard-widget--widgets))))
+        (when role-w (widget-value-set role-w "Manager")))
+      (let ((result (ecard-widget-get-value)))
+        (should (equal (ecard-property-value (car (ecard-role result))) "Manager"))))))
+
+(ert-deftest ecard-widget-test-get-value-empty-org-cleared ()
+  "Test that clearing org field results in nil."
+  (let ((ecard-obj (ecard-create :fn "Test")))
+    (setf (ecard-org ecard-obj)
+          (list (ecard-property :name "ORG" :value "Old Corp")))
+    (with-temp-buffer
+      (ecard-widget-create ecard-obj)
+      ;; Clear org
+      (let ((org-w (cdr (assq 'org ecard-widget--widgets))))
+        (when org-w (widget-value-set org-w "")))
+      (let ((result (ecard-widget-get-value)))
+        (should (null (ecard-org result)))))))
+
+(ert-deftest ecard-widget-test-get-value-empty-note-cleared ()
+  "Test that clearing note field results in nil."
+  (let ((ecard-obj (ecard-create :fn "Test")))
+    (setf (ecard-note ecard-obj)
+          (list (ecard-property :name "NOTE" :value "Old note")))
+    (with-temp-buffer
+      (ecard-widget-create ecard-obj)
+      ;; Clear note
+      (let ((note-w (cdr (assq 'note ecard-widget--widgets))))
+        (when note-w (widget-value-set note-w "")))
+      (let ((result (ecard-widget-get-value)))
+        (should (null (ecard-note result)))))))
+
+;;; Multiple entries tests
+
+(ert-deftest ecard-widget-test-multiple-emails-display ()
+  "Test that multiple email entries are displayed."
+  (let ((ecard-obj (ecard-create :fn "Test")))
+    (setf (ecard-email ecard-obj)
+          (list (ecard-property :name "EMAIL"
+                                :parameters '(("TYPE" . "work"))
+                                :value "work@example.com")
+                (ecard-property :name "EMAIL"
+                                :parameters '(("TYPE" . "home"))
+                                :value "home@example.com")))
+    (with-temp-buffer
+      (ecard-widget-create ecard-obj)
+      ;; Should have email-count = 2
+      (should (= (cdr (assq 'email-count ecard-widget--widgets)) 2))
+      ;; Should have both entries
+      (should (assq 'email-0-value ecard-widget--widgets))
+      (should (assq 'email-1-value ecard-widget--widgets)))))
+
+(ert-deftest ecard-widget-test-multiple-addresses ()
+  "Test widget form with multiple addresses."
+  (let ((ecard-obj (ecard-create :fn "Test")))
+    (setf (ecard-adr ecard-obj)
+          (list (ecard-property :name "ADR"
+                                :parameters '(("TYPE" . "work"))
+                                :value '("" "" "Work St" "WorkCity" "WS" "11111" "US"))
+                (ecard-property :name "ADR"
+                                :parameters '(("TYPE" . "home"))
+                                :value '("" "" "Home Ave" "HomeCity" "HS" "22222" "US"))))
+    (with-temp-buffer
+      (ecard-widget-create ecard-obj)
+      (should (= (cdr (assq 'adr-count ecard-widget--widgets)) 2))
+      (should (equal (widget-value (cdr (assq 'adr-0-street ecard-widget--widgets)))
+                     "Work St"))
+      (should (equal (widget-value (cdr (assq 'adr-1-street ecard-widget--widgets)))
+                     "Home Ave")))))
+
 (provide 'ecard-widget-test)
 ;;; ecard-widget-test.el ends here
