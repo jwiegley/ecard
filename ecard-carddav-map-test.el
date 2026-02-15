@@ -768,5 +768,764 @@
               (should (= (length remaining) 4))))))
     (ecard-carddav-map-test--teardown)))
 
+;;; Stats helper tests
+
+(ert-deftest ecard-carddav-map-test-make-stats-defaults ()
+  "Test make-stats creates stats with all zero defaults."
+  (let ((stats (ecard-carddav-map--make-stats)))
+    (should (= (plist-get stats :total) 0))
+    (should (= (plist-get stats :processed) 0))
+    (should (= (plist-get stats :modified) 0))
+    (should (= (plist-get stats :deleted) 0))
+    (should (= (plist-get stats :failed) 0))
+    (should (= (plist-get stats :skipped) 0))
+    (should (null (plist-get stats :errors)))))
+
+(ert-deftest ecard-carddav-map-test-make-stats-with-args ()
+  "Test make-stats with keyword arguments."
+  (let ((stats (ecard-carddav-map--make-stats :total 10 :modified 3)))
+    (should (= (plist-get stats :total) 10))
+    (should (= (plist-get stats :modified) 3))
+    (should (= (plist-get stats :processed) 0))))
+
+(ert-deftest ecard-carddav-map-test-update-stats ()
+  "Test update-stats modifies stats plist."
+  (let* ((stats (ecard-carddav-map--make-stats :total 10))
+         (updated (ecard-carddav-map--update-stats stats :processed 5 :modified 2)))
+    ;; Should return a new copy
+    (should (= (plist-get updated :processed) 5))
+    (should (= (plist-get updated :modified) 2))
+    ;; Original unchanged
+    (should (= (plist-get stats :processed) 0))))
+
+(ert-deftest ecard-carddav-map-test-update-stats-add-error ()
+  "Test update-stats with :add-error accumulates errors."
+  (let* ((stats (ecard-carddav-map--make-stats))
+         (err1 (list :path "/a.vcf" :type 'conflict :message "oops"))
+         (updated1 (ecard-carddav-map--update-stats stats :add-error err1))
+         (err2 (list :path "/b.vcf" :type 'timeout :message "slow"))
+         (updated2 (ecard-carddav-map--update-stats updated1 :add-error err2)))
+    (should (= (length (plist-get updated1 :errors)) 1))
+    (should (= (length (plist-get updated2 :errors)) 2))
+    (should (eq (plist-get (car (plist-get updated2 :errors)) :type) 'conflict))
+    (should (eq (plist-get (cadr (plist-get updated2 :errors)) :type) 'timeout))))
+
+;;; Handle resource update tests
+
+(ert-deftest ecard-carddav-map-test-handle-resource-update-success ()
+  "Test successful resource update increments modified count."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (progn
+        (ecard-carddav-map-test--populate-addressbook 1)
+        (let* ((resources (ecard-carddav-list-resources
+                          ecard-carddav-map-test--addressbook))
+               (resource-info (car resources))
+               (resource (ecard-carddav-get-resource
+                         ecard-carddav-map-test--addressbook
+                         (oref resource-info path)))
+               (stats (ecard-carddav-map--make-stats)))
+          ;; Modify the ecard
+          (ecard-add-property (oref resource ecard) 'note "Updated")
+          (let ((result (ecard-carddav-map--handle-resource-update
+                        ecard-carddav-map-test--addressbook
+                        resource stats :skip)))
+            (should (= (plist-get result :modified) 1))
+            (should (= (plist-get result :failed) 0)))))
+    (ecard-carddav-map-test--teardown)))
+
+(ert-deftest ecard-carddav-map-test-handle-resource-update-conflict-skip ()
+  "Test resource update with conflict using skip strategy."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (progn
+        (ecard-carddav-map-test--populate-addressbook 1)
+        (let* ((resources (ecard-carddav-list-resources
+                          ecard-carddav-map-test--addressbook))
+               (resource-info (car resources))
+               (resource (ecard-carddav-get-resource
+                         ecard-carddav-map-test--addressbook
+                         (oref resource-info path)))
+               (stats (ecard-carddav-map--make-stats)))
+          ;; Invalidate etag to trigger conflict
+          (oset resource etag "invalid-etag")
+          (ecard-add-property (oref resource ecard) 'note "Updated")
+          (let ((result (ecard-carddav-map--handle-resource-update
+                        ecard-carddav-map-test--addressbook
+                        resource stats :skip)))
+            (should (= (plist-get result :modified) 0))
+            (should (= (plist-get result :skipped) 1))
+            (should (= (length (plist-get result :errors)) 1)))))
+    (ecard-carddav-map-test--teardown)))
+
+(ert-deftest ecard-carddav-map-test-handle-resource-update-conflict-retry ()
+  "Test resource update with conflict using retry-once strategy."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (progn
+        (ecard-carddav-map-test--populate-addressbook 1)
+        (let* ((resources (ecard-carddav-list-resources
+                          ecard-carddav-map-test--addressbook))
+               (resource-info (car resources))
+               (resource (ecard-carddav-get-resource
+                         ecard-carddav-map-test--addressbook
+                         (oref resource-info path)))
+               (stats (ecard-carddav-map--make-stats)))
+          ;; Invalidate etag
+          (oset resource etag "invalid-etag")
+          (ecard-add-property (oref resource ecard) 'note "Retry")
+          (let ((result (ecard-carddav-map--handle-resource-update
+                        ecard-carddav-map-test--addressbook
+                        resource stats :retry-once)))
+            ;; Retry should succeed since mock server just re-fetches
+            (should (= (plist-get result :modified) 1)))))
+    (ecard-carddav-map-test--teardown)))
+
+(ert-deftest ecard-carddav-map-test-handle-resource-update-conflict-force ()
+  "Test resource update with conflict using force strategy."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (progn
+        (ecard-carddav-map-test--populate-addressbook 1)
+        (let* ((resources (ecard-carddav-list-resources
+                          ecard-carddav-map-test--addressbook))
+               (resource-info (car resources))
+               (resource (ecard-carddav-get-resource
+                         ecard-carddav-map-test--addressbook
+                         (oref resource-info path)))
+               (stats (ecard-carddav-map--make-stats)))
+          ;; Invalidate etag
+          (oset resource etag "invalid-etag")
+          (ecard-add-property (oref resource ecard) 'note "Force")
+          (let ((result (ecard-carddav-map--handle-resource-update
+                        ecard-carddav-map-test--addressbook
+                        resource stats :force)))
+            ;; Force should succeed
+            (should (= (plist-get result :modified) 1)))))
+    (ecard-carddav-map-test--teardown)))
+
+(ert-deftest ecard-carddav-map-test-handle-resource-update-unknown-strategy ()
+  "Test resource update conflict with unknown strategy."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (progn
+        (ecard-carddav-map-test--populate-addressbook 1)
+        (let* ((resources (ecard-carddav-list-resources
+                          ecard-carddav-map-test--addressbook))
+               (resource-info (car resources))
+               (resource (ecard-carddav-get-resource
+                         ecard-carddav-map-test--addressbook
+                         (oref resource-info path)))
+               (stats (ecard-carddav-map--make-stats)))
+          ;; Invalidate etag
+          (oset resource etag "invalid-etag")
+          (ecard-add-property (oref resource ecard) 'note "Unknown")
+          (let ((result (ecard-carddav-map--handle-resource-update
+                        ecard-carddav-map-test--addressbook
+                        resource stats :bogus)))
+            (should (= (plist-get result :failed) 1)))))
+    (ecard-carddav-map-test--teardown)))
+
+;;; Handle resource delete tests
+
+(ert-deftest ecard-carddav-map-test-handle-resource-delete-success ()
+  "Test successful resource deletion."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (progn
+        (ecard-carddav-map-test--populate-addressbook 1)
+        (let* ((resources (ecard-carddav-list-resources
+                          ecard-carddav-map-test--addressbook))
+               (resource-info (car resources))
+               (resource (ecard-carddav-get-resource
+                         ecard-carddav-map-test--addressbook
+                         (oref resource-info path)))
+               (stats (ecard-carddav-map--make-stats)))
+          (let ((result (ecard-carddav-map--handle-resource-delete
+                        ecard-carddav-map-test--addressbook
+                        resource stats :skip)))
+            (should (= (plist-get result :deleted) 1))
+            (should (= (plist-get result :failed) 0)))))
+    (ecard-carddav-map-test--teardown)))
+
+(ert-deftest ecard-carddav-map-test-handle-resource-delete-conflict-skip ()
+  "Test resource delete with conflict using skip strategy."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (progn
+        (ecard-carddav-map-test--populate-addressbook 1)
+        (let* ((resources (ecard-carddav-list-resources
+                          ecard-carddav-map-test--addressbook))
+               (resource-info (car resources))
+               (resource (ecard-carddav-get-resource
+                         ecard-carddav-map-test--addressbook
+                         (oref resource-info path)))
+               (stats (ecard-carddav-map--make-stats)))
+          ;; Invalidate etag
+          (oset resource etag "invalid-etag")
+          (let ((result (ecard-carddav-map--handle-resource-delete
+                        ecard-carddav-map-test--addressbook
+                        resource stats :skip)))
+            (should (= (plist-get result :deleted) 0))
+            (should (= (plist-get result :skipped) 1)))))
+    (ecard-carddav-map-test--teardown)))
+
+(ert-deftest ecard-carddav-map-test-handle-resource-delete-conflict-force ()
+  "Test resource delete with conflict using force strategy."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (progn
+        (ecard-carddav-map-test--populate-addressbook 1)
+        (let* ((resources (ecard-carddav-list-resources
+                          ecard-carddav-map-test--addressbook))
+               (resource-info (car resources))
+               (resource (ecard-carddav-get-resource
+                         ecard-carddav-map-test--addressbook
+                         (oref resource-info path)))
+               (stats (ecard-carddav-map--make-stats)))
+          ;; Invalidate etag
+          (oset resource etag "invalid-etag")
+          (let ((result (ecard-carddav-map--handle-resource-delete
+                        ecard-carddav-map-test--addressbook
+                        resource stats :force)))
+            ;; Force should succeed via re-fetching latest etag
+            (should (= (plist-get result :deleted) 1)))))
+    (ecard-carddav-map-test--teardown)))
+
+(ert-deftest ecard-carddav-map-test-handle-resource-delete-unknown-strategy ()
+  "Test resource delete conflict with unknown strategy."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (progn
+        (ecard-carddav-map-test--populate-addressbook 1)
+        (let* ((resources (ecard-carddav-list-resources
+                          ecard-carddav-map-test--addressbook))
+               (resource-info (car resources))
+               (resource (ecard-carddav-get-resource
+                         ecard-carddav-map-test--addressbook
+                         (oref resource-info path)))
+               (stats (ecard-carddav-map--make-stats)))
+          ;; Invalidate etag
+          (oset resource etag "invalid-etag")
+          (let ((result (ecard-carddav-map--handle-resource-delete
+                        ecard-carddav-map-test--addressbook
+                        resource stats :bogus)))
+            (should (= (plist-get result :failed) 1)))))
+    (ecard-carddav-map-test--teardown)))
+
+(ert-deftest ecard-carddav-map-test-handle-resource-delete-not-found ()
+  "Test deleting already-deleted resource counts as success."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (progn
+        (ecard-carddav-map-test--populate-addressbook 1)
+        (let* ((resources (ecard-carddav-list-resources
+                          ecard-carddav-map-test--addressbook))
+               (resource-info (car resources))
+               (resource (ecard-carddav-get-resource
+                         ecard-carddav-map-test--addressbook
+                         (oref resource-info path)))
+               (stats (ecard-carddav-map--make-stats)))
+          ;; Delete the resource first
+          (ecard-carddav-delete-resource
+           ecard-carddav-map-test--addressbook (oref resource path))
+          ;; Attempting to delete again should count as deleted (not-found)
+          (let ((result (ecard-carddav-map--handle-resource-delete
+                        ecard-carddav-map-test--addressbook
+                        resource stats :skip)))
+            (should (= (plist-get result :deleted) 1)))))
+    (ecard-carddav-map-test--teardown)))
+
+;;; Mock server edge case tests
+
+(ert-deftest ecard-carddav-map-test-mock-handle-get-not-found ()
+  "Test mock GET for non-existent resource returns 404."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (should-error
+       (ecard-carddav-get-resource
+        ecard-carddav-map-test--addressbook
+        "/addressbooks/user/contacts/nonexistent.vcf")
+       :type 'ecard-carddav-not-found-error)
+    (ecard-carddav-map-test--teardown)))
+
+(ert-deftest ecard-carddav-map-test-mock-handle-put-new ()
+  "Test mock PUT for new resource returns 201."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (let ((result (ecard-carddav-put-ecard
+                    ecard-carddav-map-test--addressbook
+                    "/addressbooks/user/contacts/new.vcf"
+                    (ecard-carddav-map-test--create-test-ecard "New Contact"))))
+        (should (ecard-carddav-resource-p result))
+        (should (oref result etag)))
+    (ecard-carddav-map-test--teardown)))
+
+(ert-deftest ecard-carddav-map-test-mock-handle-put-update ()
+  "Test mock PUT for existing resource returns 204."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (let ((path "/addressbooks/user/contacts/update.vcf"))
+        ;; Create
+        (let ((r1 (ecard-carddav-put-ecard
+                   ecard-carddav-map-test--addressbook path
+                   (ecard-carddav-map-test--create-test-ecard "Original"))))
+          ;; Update with matching etag
+          (let ((r2 (ecard-carddav-put-ecard
+                     ecard-carddav-map-test--addressbook path
+                     (ecard-carddav-map-test--create-test-ecard "Updated")
+                     (oref r1 etag))))
+            (should (ecard-carddav-resource-p r2))
+            (should-not (string= (oref r1 etag) (oref r2 etag))))))
+    (ecard-carddav-map-test--teardown)))
+
+(ert-deftest ecard-carddav-map-test-mock-handle-put-etag-mismatch ()
+  "Test mock PUT with wrong ETag returns 412."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (let ((path "/addressbooks/user/contacts/conflict.vcf"))
+        (ecard-carddav-put-ecard
+         ecard-carddav-map-test--addressbook path
+         (ecard-carddav-map-test--create-test-ecard "Original"))
+        ;; Try to update with wrong etag
+        (should-error
+         (ecard-carddav-put-ecard
+          ecard-carddav-map-test--addressbook path
+          (ecard-carddav-map-test--create-test-ecard "Conflict")
+          "wrong-etag")
+         :type 'ecard-carddav-conflict-error))
+    (ecard-carddav-map-test--teardown)))
+
+(ert-deftest ecard-carddav-map-test-mock-handle-delete-not-found ()
+  "Test mock DELETE for non-existent resource returns 404."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (should-error
+       (ecard-carddav-delete-resource
+        ecard-carddav-map-test--addressbook
+        "/addressbooks/user/contacts/ghost.vcf")
+       :type 'ecard-carddav-not-found-error)
+    (ecard-carddav-map-test--teardown)))
+
+(ert-deftest ecard-carddav-map-test-mock-handle-delete-etag-mismatch ()
+  "Test mock DELETE with wrong ETag returns 412."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (let ((path "/addressbooks/user/contacts/delete-conflict.vcf"))
+        (ecard-carddav-put-ecard
+         ecard-carddav-map-test--addressbook path
+         (ecard-carddav-map-test--create-test-ecard "Victim"))
+        (should-error
+         (ecard-carddav-delete-resource
+          ecard-carddav-map-test--addressbook path "wrong-etag")
+         :type 'ecard-carddav-conflict-error))
+    (ecard-carddav-map-test--teardown)))
+
+;;; Mock REPORT handler tests
+
+(ert-deftest ecard-carddav-map-test-mock-sync-collection ()
+  "Test mock sync-collection REPORT handler."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (let ((mock ecard-carddav-map-test--mock-server)
+            (path "/addressbooks/user/contacts/"))
+        ;; Add resources
+        (ecard-carddav-mock-put-ecard
+         mock (concat path "a.vcf")
+         (ecard-carddav-map-test--create-test-ecard "Alice"))
+        (ecard-carddav-mock-put-ecard
+         mock (concat path "b.vcf")
+         (ecard-carddav-map-test--create-test-ecard "Bob"))
+
+        ;; Build sync-collection request
+        (let ((xml (ecard-carddav-mock--parse-request-body
+                    (concat "<?xml version=\"1.0\"?>"
+                           "<sync-collection xmlns=\"DAV:\">"
+                           "<sync-token>0</sync-token>"
+                           "<prop><getetag/></prop>"
+                           "</sync-collection>"))))
+          (let ((response (ecard-carddav-mock--handle-sync-collection
+                          mock path xml)))
+            (should (= (plist-get response :status) 207))
+            (should (string-match-p "sync-token" (plist-get response :body))))))
+    (ecard-carddav-map-test--teardown)))
+
+(ert-deftest ecard-carddav-map-test-mock-query ()
+  "Test mock addressbook-query REPORT handler."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (let ((mock ecard-carddav-map-test--mock-server)
+            (path "/addressbooks/user/contacts/"))
+        (ecard-carddav-mock-put-ecard
+         mock (concat path "a.vcf")
+         (ecard-carddav-map-test--create-test-ecard "Alice"))
+
+        (let ((xml (ecard-carddav-mock--parse-request-body
+                    (concat "<?xml version=\"1.0\"?>"
+                           "<C:addressbook-query xmlns=\"DAV:\" xmlns:C=\"urn:ietf:params:xml:ns:carddav\">"
+                           "<prop><getetag/><C:address-data/></prop>"
+                           "</C:addressbook-query>"))))
+          (let ((response (ecard-carddav-mock--handle-query mock path xml)))
+            (should (= (plist-get response :status) 207))
+            (should (string-match-p "address-data" (plist-get response :body))))))
+    (ecard-carddav-map-test--teardown)))
+
+(ert-deftest ecard-carddav-map-test-mock-report-unsupported ()
+  "Test mock server rejects unsupported REPORT types."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (let ((mock ecard-carddav-map-test--mock-server))
+        ;; Pass string body, not parsed XML - handle-report parses it internally
+        (let ((response (ecard-carddav-mock--handle-report
+                        mock "/addressbooks/user/contacts/"
+                        "<unknown-report xmlns=\"DAV:\"/>")))
+          (should (= (plist-get response :status) 400))))
+    (ecard-carddav-map-test--teardown)))
+
+;;; Mock PROPFIND handler tests
+
+(ert-deftest ecard-carddav-map-test-mock-propfind-principal ()
+  "Test mock principal discovery PROPFIND."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (let ((response (ecard-carddav-mock--propfind-principal
+                      ecard-carddav-map-test--mock-server)))
+        (should (= (plist-get response :status) 207))
+        (should (string-match-p "current-user-principal"
+                               (plist-get response :body))))
+    (ecard-carddav-map-test--teardown)))
+
+(ert-deftest ecard-carddav-map-test-mock-propfind-principal-props ()
+  "Test mock principal properties PROPFIND."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (let ((response (ecard-carddav-mock--propfind-principal-props
+                      ecard-carddav-map-test--mock-server)))
+        (should (= (plist-get response :status) 207))
+        (should (string-match-p "addressbook-home-set"
+                               (plist-get response :body))))
+    (ecard-carddav-map-test--teardown)))
+
+(ert-deftest ecard-carddav-map-test-mock-propfind-addressbook-depth1 ()
+  "Test mock addressbook PROPFIND with depth 1 includes resources."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (progn
+        (ecard-carddav-mock-put-ecard
+         ecard-carddav-map-test--mock-server
+         "/addressbooks/user/contacts/test.vcf"
+         (ecard-carddav-map-test--create-test-ecard "Test"))
+        (let ((response (ecard-carddav-mock--propfind-addressbook
+                        ecard-carddav-map-test--mock-server
+                        "/addressbooks/user/contacts/"
+                        "1")))
+          (should (= (plist-get response :status) 207))
+          (should (string-match-p "getetag"
+                                 (plist-get response :body)))))
+    (ecard-carddav-map-test--teardown)))
+
+(ert-deftest ecard-carddav-map-test-mock-propfind-home-depth1-lists-addressbooks ()
+  "Test mock addressbook-home PROPFIND with depth 1 lists addressbooks."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (let ((response (ecard-carddav-mock--propfind-addressbook-home
+                      ecard-carddav-map-test--mock-server
+                      "1")))
+        (should (= (plist-get response :status) 207))
+        (should (string-match-p "Test Contacts"
+                               (plist-get response :body))))
+    (ecard-carddav-map-test--teardown)))
+
+(ert-deftest ecard-carddav-map-test-mock-propfind-home-depth1 ()
+  "Test mock addressbook-home PROPFIND with depth 1 lists addressbooks."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (let ((response (ecard-carddav-mock--propfind-addressbook-home
+                      ecard-carddav-map-test--mock-server
+                      "1")))
+        (should (= (plist-get response :status) 207))
+        (should (string-match-p "Test Contacts"
+                               (plist-get response :body))))
+    (ecard-carddav-map-test--teardown)))
+
+;;; Multiget fallback tests
+
+(ert-deftest ecard-carddav-map-test-multiget-fallback-individual ()
+  "Test fallback to individual fetches when multiget fails."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (progn
+        (ecard-carddav-map-test--populate-addressbook 3)
+
+        ;; Mock multiget to fail, forcing individual fetch fallback
+        (let ((orig-fn (symbol-function 'ecard-carddav-multiget-resources)))
+          (cl-letf (((symbol-function 'ecard-carddav-multiget-resources)
+                     (lambda (_ab _paths)
+                       (error "Multiget not supported"))))
+            (let ((result (ecard-carddav-map-resources
+                          ecard-carddav-map-test--addressbook
+                          (lambda (resource)
+                            (let ((ecard (oref resource ecard)))
+                              (ecard-add-property ecard 'note "Fallback")
+                              t)))))
+              ;; Should still process all resources via individual fetches
+              (should (= (plist-get result :total) 3))
+              (should (= (plist-get result :processed) 3))
+              (should (= (plist-get result :modified) 3))))))
+    (ecard-carddav-map-test--teardown)))
+
+(ert-deftest ecard-carddav-map-test-multiget-fallback-partial-failure ()
+  "Test fallback when multiget fails and some individual fetches also fail."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (progn
+        (ecard-carddav-map-test--populate-addressbook 3)
+
+        ;; Mock multiget to fail and one individual fetch to fail
+        (let ((fetch-count 0))
+          (cl-letf (((symbol-function 'ecard-carddav-multiget-resources)
+                     (lambda (_ab _paths)
+                       (error "Multiget not supported")))
+                    ((symbol-function 'ecard-carddav-get-resource)
+                     (let ((orig-fn (symbol-function 'ecard-carddav-get-resource)))
+                       (lambda (ab path)
+                         (setq fetch-count (1+ fetch-count))
+                         (if (= fetch-count 2)
+                             (error "Simulated fetch error")
+                           (funcall orig-fn ab path))))))
+            (let ((result (ecard-carddav-map-resources
+                          ecard-carddav-map-test--addressbook
+                          (lambda (_resource) nil))))
+              ;; Should have 1 fetch error
+              (should (>= (plist-get result :failed) 1))
+              ;; Should still process the ones that succeeded
+              (should (>= (plist-get result :processed) 2))))))
+    (ecard-carddav-map-test--teardown)))
+
+;;; Serialization error in change detection
+
+(ert-deftest ecard-carddav-map-test-serialize-error ()
+  "Test serialization error during change detection."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (progn
+        (ecard-carddav-map-test--populate-addressbook 2)
+
+        (let ((serialize-count 0))
+          (cl-letf (((symbol-function 'ecard-serialize)
+                     (let ((orig-fn (symbol-function 'ecard-serialize)))
+                       (lambda (ecard-obj)
+                         (setq serialize-count (1+ serialize-count))
+                         ;; Fail on second serialization (first resource's "before" snapshot)
+                         ;; count 1 = first resource serialization
+                         (if (= serialize-count 1)
+                             (error "Simulated serialize error")
+                           (funcall orig-fn ecard-obj))))))
+            (let ((result (ecard-carddav-map-resources
+                          ecard-carddav-map-test--addressbook
+                          (lambda (resource)
+                            (let ((ecard (oref resource ecard)))
+                              (ecard-add-property ecard 'note "Test")
+                              t)))))
+              ;; At least one failure from serialization error
+              (should (>= (plist-get result :failed) 1))
+              ;; Should have a serialize-error type in errors
+              (should (cl-some (lambda (err)
+                                (eq (plist-get err :type) 'serialize-error))
+                              (plist-get result :errors)))))))
+    (ecard-carddav-map-test--teardown)))
+
+;;; Transformation error - additional coverage
+
+(ert-deftest ecard-carddav-map-test-transformation-all-errors ()
+  "Test all resources erroring in transformation."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (progn
+        (ecard-carddav-map-test--populate-addressbook 3)
+        (let ((result (ecard-carddav-map-resources
+                      ecard-carddav-map-test--addressbook
+                      (lambda (_resource)
+                        (error "Transform failed")))))
+          (should (= (plist-get result :total) 3))
+          (should (= (plist-get result :processed) 3))
+          (should (= (plist-get result :failed) 3))
+          (should (= (length (plist-get result :errors)) 3))
+          ;; All should be transform-error
+          (dolist (err (plist-get result :errors))
+            (should (eq (plist-get err :type) 'transform-error)))))
+    (ecard-carddav-map-test--teardown)))
+
+;;; Update error paths (non-conflict errors)
+
+(ert-deftest ecard-carddav-map-test-update-generic-error ()
+  "Test generic error during resource update."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (progn
+        (ecard-carddav-map-test--populate-addressbook 1)
+
+        ;; Mock put-ecard to signal a generic error (not conflict)
+        (cl-letf (((symbol-function 'ecard-carddav-put-ecard)
+                   (lambda (_ab _path _ecard &optional _etag _le)
+                     (error "Disk full"))))
+          (let ((result (ecard-carddav-map-resources
+                        ecard-carddav-map-test--addressbook
+                        (lambda (resource)
+                          (let ((ecard (oref resource ecard)))
+                            (ecard-add-property ecard 'note "Test")
+                            t)))))
+            (should (= (plist-get result :failed) 1))
+            ;; Should have update-error type
+            (should (cl-some (lambda (err)
+                              (eq (plist-get err :type) 'update-error))
+                            (plist-get result :errors))))))
+    (ecard-carddav-map-test--teardown)))
+
+;;; Retry-once failure path
+
+(ert-deftest ecard-carddav-map-test-handle-resource-update-retry-fails ()
+  "Test retry-once conflict when retry also fails."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (progn
+        (ecard-carddav-map-test--populate-addressbook 1)
+        (let* ((resources (ecard-carddav-list-resources
+                          ecard-carddav-map-test--addressbook))
+               (resource-info (car resources))
+               (resource (ecard-carddav-get-resource
+                         ecard-carddav-map-test--addressbook
+                         (oref resource-info path)))
+               (stats (ecard-carddav-map--make-stats)))
+          ;; Invalidate etag and mock get-resource to fail on retry
+          (oset resource etag "invalid-etag")
+          (ecard-add-property (oref resource ecard) 'note "Retry fail")
+          (cl-letf (((symbol-function 'ecard-carddav-get-resource)
+                     (lambda (_ab _path)
+                       (error "Cannot re-fetch resource"))))
+            (let ((result (ecard-carddav-map--handle-resource-update
+                          ecard-carddav-map-test--addressbook
+                          resource stats :retry-once)))
+              (should (= (plist-get result :failed) 1))
+              ;; Should be retry-failed type
+              (should (cl-some (lambda (err)
+                                (eq (plist-get err :type) 'retry-failed))
+                              (plist-get result :errors)))))))
+    (ecard-carddav-map-test--teardown)))
+
+;;; Force failure path for update
+
+(ert-deftest ecard-carddav-map-test-handle-resource-update-force-fails ()
+  "Test force update when force also fails."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (progn
+        (ecard-carddav-map-test--populate-addressbook 1)
+        (let* ((resources (ecard-carddav-list-resources
+                          ecard-carddav-map-test--addressbook))
+               (resource-info (car resources))
+               (resource (ecard-carddav-get-resource
+                         ecard-carddav-map-test--addressbook
+                         (oref resource-info path)))
+               (stats (ecard-carddav-map--make-stats)))
+          ;; Invalidate etag and mock get-resource to fail
+          (oset resource etag "invalid-etag")
+          (ecard-add-property (oref resource ecard) 'note "Force fail")
+          (cl-letf (((symbol-function 'ecard-carddav-get-resource)
+                     (lambda (_ab _path)
+                       (error "Cannot re-fetch for force"))))
+            (let ((result (ecard-carddav-map--handle-resource-update
+                          ecard-carddav-map-test--addressbook
+                          resource stats :force)))
+              (should (= (plist-get result :failed) 1))
+              ;; Should be force-failed type
+              (should (cl-some (lambda (err)
+                                (eq (plist-get err :type) 'force-failed))
+                              (plist-get result :errors)))))))
+    (ecard-carddav-map-test--teardown)))
+
+;;; Delete force failure path
+
+(ert-deftest ecard-carddav-map-test-handle-resource-delete-force-fails ()
+  "Test force delete when force also fails."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (progn
+        (ecard-carddav-map-test--populate-addressbook 1)
+        (let* ((resources (ecard-carddav-list-resources
+                          ecard-carddav-map-test--addressbook))
+               (resource-info (car resources))
+               (resource (ecard-carddav-get-resource
+                         ecard-carddav-map-test--addressbook
+                         (oref resource-info path)))
+               (stats (ecard-carddav-map--make-stats)))
+          ;; Invalidate etag and mock get-resource to fail
+          (oset resource etag "invalid-etag")
+          (cl-letf (((symbol-function 'ecard-carddav-get-resource)
+                     (lambda (_ab _path)
+                       (error "Cannot re-fetch for force delete"))))
+            (let ((result (ecard-carddav-map--handle-resource-delete
+                          ecard-carddav-map-test--addressbook
+                          resource stats :force)))
+              (should (= (plist-get result :failed) 1))
+              ;; Should be delete-force-failed type
+              (should (cl-some (lambda (err)
+                                (eq (plist-get err :type) 'delete-force-failed))
+                              (plist-get result :errors)))))))
+    (ecard-carddav-map-test--teardown)))
+
+;;; Delete generic error path
+
+(ert-deftest ecard-carddav-map-test-handle-resource-delete-generic-error ()
+  "Test generic error during resource deletion."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (progn
+        (ecard-carddav-map-test--populate-addressbook 1)
+        (let* ((resources (ecard-carddav-list-resources
+                          ecard-carddav-map-test--addressbook))
+               (resource-info (car resources))
+               (resource (ecard-carddav-get-resource
+                         ecard-carddav-map-test--addressbook
+                         (oref resource-info path)))
+               (stats (ecard-carddav-map--make-stats)))
+          ;; Mock delete-resource to signal a generic error
+          (cl-letf (((symbol-function 'ecard-carddav-delete-resource)
+                     (lambda (_ab _path &optional _etag)
+                       (error "Network timeout"))))
+            (let ((result (ecard-carddav-map--handle-resource-delete
+                          ecard-carddav-map-test--addressbook
+                          resource stats :skip)))
+              (should (= (plist-get result :failed) 1))
+              ;; Should be delete-error type
+              (should (cl-some (lambda (err)
+                                (eq (plist-get err :type) 'delete-error))
+                              (plist-get result :errors)))))))
+    (ecard-carddav-map-test--teardown)))
+
+;;; End-to-end map with all error paths exercised
+
+(ert-deftest ecard-carddav-map-test-map-with-delete-errors ()
+  "Test mapping with delete operations that encounter errors."
+  (ecard-carddav-map-test--setup)
+  (unwind-protect
+      (progn
+        (ecard-carddav-map-test--populate-addressbook 3)
+
+        ;; Mock delete-resource to fail generically
+        (let ((orig-fn (symbol-function 'ecard-carddav-delete-resource)))
+          (cl-letf (((symbol-function 'ecard-carddav-delete-resource)
+                     (lambda (ab path &optional etag)
+                       (if (string-match "contact1" path)
+                           (error "Permission denied")
+                         (funcall orig-fn ab path etag)))))
+            (let ((result (ecard-carddav-map-resources
+                          ecard-carddav-map-test--addressbook
+                          (lambda (_resource) :delete))))
+              ;; contact1 should fail, contacts 2 and 3 should succeed
+              (should (= (plist-get result :deleted) 2))
+              (should (= (plist-get result :failed) 1))))))
+    (ecard-carddav-map-test--teardown)))
+
 (provide 'ecard-carddav-map-test)
 ;;; ecard-carddav-map-test.el ends here
