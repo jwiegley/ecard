@@ -1,0 +1,135 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Emacs
+      uses: jcs090218/setup-emacs@master
+      with:
+        version: 30.1
+
+    - name: Setup Eask
+      uses: emacs-eask/setup-eask@master
+      with:
+        version: 'snapshot'
+
+    - name: Install dependencies
+      run: eask install-deps --dev
+
+    - name: Run ERT tests
+      run: |
+        eask exec emacs -batch -L . \
+          -l ecard-test-setup.el \
+          -l ecard-test.el \
+          -l ecard-carddav-map-test.el \
+          -l ecard-carddav-test.el \
+          -l ecard-compat-test.el \
+          -l ecard-display-test.el \
+          -l ecard-org-test.el \
+          -l ecard-regression-test.el \
+          -l ecard-sync-test.el \
+          -l ecard-tools-test.el \
+          -l ecard-widget-test.el \
+          -f ert-run-tests-batch-and-exit
+
+  coverage:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Emacs
+      uses: jcs090218/setup-emacs@master
+      with:
+        version: 30.1
+
+    - name: Setup Eask
+      uses: emacs-eask/setup-eask@master
+      with:
+        version: 'snapshot'
+
+    - name: Install dependencies
+      run: eask install-deps --dev
+
+    - name: Run tests with coverage
+      run: |
+        rm -f lcov.info
+        UNDERCOVER_FORCE=true eask exec emacs -batch \
+          --eval "(let ((d (car (file-expand-wildcards \".eask/*/elpa\")))) (when (and d (file-directory-p d)) (dolist (p (directory-files d t \"^[^.]\")) (when (file-directory-p p) (add-to-list 'load-path p)))))" \
+          -L . \
+          -l ecard-test-setup.el \
+          -l ecard-test.el \
+          -l ecard-carddav-map-test.el \
+          -l ecard-carddav-test.el \
+          -l ecard-compat-test.el \
+          -l ecard-display-test.el \
+          -l ecard-org-test.el \
+          -l ecard-regression-test.el \
+          -l ecard-sync-test.el \
+          -l ecard-tools-test.el \
+          -l ecard-widget-test.el \
+          -f ert-run-tests-batch-and-exit
+
+    - name: Enforce 95% coverage threshold
+      run: |
+        python3 << 'SCRIPT'
+        import re, sys
+
+        with open('lcov.info') as f:
+            content = f.read()
+
+        blocks = content.split('end_of_record')
+        failed = False
+        total_hit, total_found = 0, 0
+
+        print("Per-file coverage:")
+        print(f"{'File':35s} {'Hit':>4s}/{'Total':>4s}  {'Pct':>6s}  Status")
+        print("-" * 65)
+
+        for block in blocks:
+            sf = re.search(r'SF:(.*)', block)
+            if not sf:
+                continue
+            fname = sf.group(1).split('/')[-1]
+            lines = re.findall(r'DA:(\d+),(\d+)', block)
+            found = len(lines)
+            hit = sum(1 for _, c in lines if int(c) > 0)
+            if found == 0:
+                continue
+            pct = hit / found * 100
+            total_hit += hit
+            total_found += found
+            status = "PASS" if pct >= 95 else "FAIL"
+            if pct < 95:
+                failed = True
+            print(f"{fname:35s} {hit:4d}/{found:4d}  {pct:5.1f}%  {status}")
+
+        print("-" * 65)
+        overall = total_hit / total_found * 100 if total_found > 0 else 0
+        print(f"{'TOTAL':35s} {total_hit:4d}/{total_found:4d}  {overall:5.1f}%")
+        print()
+
+        if failed or overall < 95:
+            print("FAILED: Coverage below 95% threshold")
+            sys.exit(1)
+        print("PASSED: All files above 95% coverage")
+        SCRIPT
+
+    - name: Upload coverage artifact
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: lcov.info
+        retention-days: 30
