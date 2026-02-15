@@ -867,5 +867,550 @@ Ensures the fix didn't break existing functionality."
   (let ((pos (ecard--find-value-separator ":value")))
     (should (= pos 0))))
 
+;;; Encoding dispatch tests
+
+(ert-deftest ecard-compat-decode-value-base64 ()
+  "Test decode-value dispatching to BASE64 decoder."
+  (should (string= (ecard-compat--decode-value "SGVsbG8=" "BASE64")
+                   "Hello"))
+  ;; Also works with lowercase "b" encoding label
+  (should (string= (ecard-compat--decode-value "SGVsbG8=" "b")
+                   "Hello")))
+
+(ert-deftest ecard-compat-decode-value-quoted-printable ()
+  "Test decode-value dispatching to QUOTED-PRINTABLE decoder."
+  (should (string= (ecard-compat--decode-value "Hello=20World" "QUOTED-PRINTABLE")
+                   "Hello World"))
+  ;; Also works with "Q" encoding label
+  (should (string= (ecard-compat--decode-value "Hello=20World" "Q")
+                   "Hello World")))
+
+(ert-deftest ecard-compat-decode-value-unknown-encoding ()
+  "Test decode-value with unknown encoding returns value as-is."
+  (should (string= (ecard-compat--decode-value "test" "UNKNOWN")
+                   "test")))
+
+(ert-deftest ecard-compat-decode-value-nil-encoding ()
+  "Test decode-value with nil encoding returns nil."
+  (should (null (ecard-compat--decode-value "test" nil))))
+
+(ert-deftest ecard-compat-decode-value-base64-with-whitespace ()
+  "Test decode-value strips whitespace from BASE64 data."
+  (should (string= (ecard-compat--decode-value "SGVs\nbG8=" "BASE64")
+                   "Hello")))
+
+;;; Quoted-printable with charset
+
+(ert-deftest ecard-compat-decode-quoted-printable-with-charset ()
+  "Test QUOTED-PRINTABLE decoding with charset conversion."
+  (let ((result (ecard-compat--decode-quoted-printable "Hello" "UTF-8")))
+    (should (string= result "Hello"))))
+
+;;; Charset conversion edge cases
+
+(ert-deftest ecard-compat-convert-charset-iso-8859-1 ()
+  "Test charset conversion from ISO-8859-1."
+  (let* ((raw (unibyte-string #xe9))  ; é in ISO-8859-1
+         (result (ecard-compat--convert-charset raw "ISO-8859-1")))
+    (should (string= result "\u00e9"))))
+
+(ert-deftest ecard-compat-convert-charset-unknown ()
+  "Test charset conversion with unknown charset returns value as-is."
+  (should (string= (ecard-compat--convert-charset "Test" "UNKNOWN-CHARSET-XYZ")
+                   "Test")))
+
+;;; Parse legacy params tests
+
+(ert-deftest ecard-compat-parse-legacy-params-key-value ()
+  "Test parsing legacy params with key=value format."
+  (let ((result (ecard-compat--parse-legacy-params "TYPE=HOME;CHARSET=UTF-8" 'v30)))
+    (should (assoc "TYPE" result))
+    (should (equal (cdr (assoc "TYPE" result)) "HOME"))
+    (should (equal (cdr (assoc "CHARSET" result)) "UTF-8"))))
+
+(ert-deftest ecard-compat-parse-legacy-params-bare-types ()
+  "Test parsing legacy params with bare type indicators (vCard 2.1 style)."
+  (let ((result (ecard-compat--parse-legacy-params "HOME;VOICE;FAX" 'v21)))
+    (should (assoc "HOME" result))
+    (should (eq (cdr (assoc "HOME" result)) t))
+    (should (eq (cdr (assoc "VOICE" result)) t))))
+
+(ert-deftest ecard-compat-parse-legacy-params-quoted-value ()
+  "Test parsing legacy params with quoted values."
+  (let ((result (ecard-compat--parse-legacy-params "TYPE=\"HOME,WORK\"" 'v30)))
+    (should (equal (cdr (assoc "TYPE" result)) "HOME,WORK"))))
+
+(ert-deftest ecard-compat-parse-legacy-params-nil ()
+  "Test parsing nil param string returns nil."
+  (should (null (ecard-compat--parse-legacy-params nil 'v30)))
+  (should (null (ecard-compat--parse-legacy-params "" 'v30))))
+
+;;; Parse legacy property tests
+
+(ert-deftest ecard-compat-parse-legacy-property-simple ()
+  "Test parsing simple legacy property line."
+  (let ((result (ecard-compat--parse-legacy-property "FN:John Doe" 'v30)))
+    (should result)
+    (should (equal (plist-get result :name) "FN"))
+    (should (equal (plist-get result :value) "John Doe"))))
+
+(ert-deftest ecard-compat-parse-legacy-property-with-params ()
+  "Test parsing legacy property with parameters."
+  (let ((result (ecard-compat--parse-legacy-property
+                 "TEL;TYPE=HOME,VOICE:555-1234" 'v30)))
+    (should result)
+    (should (equal (plist-get result :name) "TEL"))
+    (should (equal (plist-get result :value) "555-1234"))
+    (let ((params (plist-get result :params)))
+      (should (assoc "TYPE" params)))))
+
+(ert-deftest ecard-compat-parse-legacy-property-with-group ()
+  "Test parsing legacy property with group prefix."
+  (let ((result (ecard-compat--parse-legacy-property
+                 "item1.TEL:555-1234" 'v30)))
+    (should result)
+    (should (equal (plist-get result :group) "item1"))
+    (should (equal (plist-get result :name) "TEL"))))
+
+(ert-deftest ecard-compat-parse-legacy-property-binary-skip ()
+  "Test parsing skips lines with binary/control characters."
+  (let ((result (ecard-compat--parse-legacy-property
+                 (concat "PHOTO:" (string 0) "binary") 'v21)))
+    (should (null result))))
+
+(ert-deftest ecard-compat-parse-legacy-property-21-encoding ()
+  "Test parsing vCard 2.1 property with ENCODING parameter."
+  (let ((result (ecard-compat--parse-legacy-property
+                 "NOTE;ENCODING=QUOTED-PRINTABLE:Hello=20World" 'v21)))
+    (should result)
+    (should (equal (plist-get result :encoding) "QUOTED-PRINTABLE"))))
+
+(ert-deftest ecard-compat-parse-legacy-property-21-charset ()
+  "Test parsing vCard 2.1 property with CHARSET parameter."
+  (let ((result (ecard-compat--parse-legacy-property
+                 "NOTE;CHARSET=ISO-8859-1:test" 'v21)))
+    (should result)
+    (should (equal (plist-get result :charset) "ISO-8859-1"))))
+
+;;; Add property to ecard tests
+
+(ert-deftest ecard-compat-add-property-single ()
+  "Test adding a single property to ecard."
+  (let ((vc (ecard-create :fn "Test")))
+    (ecard-compat--add-property-to-ecard vc "EMAIL" "test@example.com" nil nil)
+    (should (= (length (ecard-email vc)) 1))
+    (should (equal (ecard-property-value (car (ecard-email vc)))
+                   "test@example.com"))))
+
+(ert-deftest ecard-compat-add-property-multiple ()
+  "Test adding multiple properties to ecard."
+  (let ((vc (ecard-create :fn "Test")))
+    (ecard-compat--add-property-to-ecard vc "EMAIL" "first@example.com" nil nil)
+    (ecard-compat--add-property-to-ecard vc "EMAIL" "second@example.com" nil nil)
+    (should (= (length (ecard-email vc)) 2))))
+
+(ert-deftest ecard-compat-add-property-cardinality-one ()
+  "Test that cardinality-one properties are replaced, not appended."
+  (let ((vc (ecard-create :fn "Original")))
+    ;; FN is cardinality *1 in RFC 6350, but actually it's 1*
+    ;; Test with a true cardinality-one property like KIND
+    (ecard-compat--add-property-to-ecard vc "KIND" "individual" nil nil)
+    (ecard-compat--add-property-to-ecard vc "KIND" "organization" nil nil)
+    ;; Should have only the replacement
+    (should (= (length (ecard-kind vc)) 1))))
+
+(ert-deftest ecard-compat-add-property-with-group ()
+  "Test adding property with group prefix."
+  (let ((vc (ecard-create :fn "Test")))
+    (ecard-compat--add-property-to-ecard vc "EMAIL" "test@example.com"
+                                          '(("TYPE" . "work")) "item1")
+    (let ((prop (car (ecard-email vc))))
+      (should (equal (ecard-property-group prop) "item1")))))
+
+(ert-deftest ecard-compat-add-property-skips-version ()
+  "Test that VERSION property is not overridden."
+  (let ((vc (ecard-create :fn "Test")))
+    (ecard-compat--add-property-to-ecard vc "VERSION" "3.0" nil nil)
+    ;; VERSION should still be 4.0 from ecard-create
+    (should (equal (ecard-get-property-value vc 'version) "4.0"))))
+
+;;; Build ecard 4.0 tests
+
+(ert-deftest ecard-compat-build-ecard-40-basic ()
+  "Test building vCard 4.0 object from properties."
+  (let ((props (list (list :name "EMAIL" :value "test@example.com"
+                           :params nil :group nil)
+                     (list :name "TEL" :value "+1-555-1234"
+                           :params '(("TYPE" . "home")) :group nil))))
+    (let ((vc (ecard-compat--build-ecard-40 "John Doe" props)))
+      (should (ecard-p vc))
+      (should (equal (ecard-get-property-value vc 'fn) "John Doe"))
+      (should (equal (ecard-get-property-value vc 'email) "test@example.com"))
+      (should (equal (ecard-get-property-value vc 'tel) "+1-555-1234")))))
+
+(ert-deftest ecard-compat-build-ecard-40-nil-fn ()
+  "Test building vCard 4.0 with nil FN uses 'Unknown'."
+  (let ((vc (ecard-compat--build-ecard-40 nil nil)))
+    (should (equal (ecard-get-property-value vc 'fn) "Unknown"))))
+
+;;; Process property value tests
+
+(ert-deftest ecard-compat-process-property-value-structured ()
+  "Test processing structured values (N, ADR)."
+  (let ((result (ecard-compat--process-property-value
+                 "N" "Doe;John;Q;Mr;Jr" nil nil nil 'v30)))
+    (should (listp result))
+    (should (equal (car result) "Doe"))
+    (should (equal (cadr result) "John"))))
+
+(ert-deftest ecard-compat-process-property-value-text-list ()
+  "Test processing text-list values (CATEGORIES)."
+  (let ((result (ecard-compat--process-property-value
+                 "CATEGORIES" "Work,Friend,VIP" nil nil nil 'v30)))
+    (should (listp result))
+    (should (equal result '("Work" "Friend" "VIP")))))
+
+(ert-deftest ecard-compat-process-property-value-encoded-base64 ()
+  "Test processing BASE64-encoded binary property."
+  (let ((result (ecard-compat--process-property-value
+                 "PHOTO" "SGVsbG8=" nil "BASE64" nil 'v21)))
+    ;; Should be a data URI
+    (should (string-prefix-p "data:image/jpeg;base64," result))))
+
+(ert-deftest ecard-compat-process-property-value-with-charset ()
+  "Test processing value with charset but no encoding."
+  (let ((result (ecard-compat--process-property-value
+                 "NOTE" "Hello" nil nil "UTF-8" 'v21)))
+    (should (string= result "Hello"))))
+
+;;; Media type detection tests
+
+(ert-deftest ecard-compat-detect-media-type-logo ()
+  "Test media type detection for LOGO."
+  (should (string= (ecard-compat--detect-media-type "LOGO" nil)
+                   "image/png")))
+
+(ert-deftest ecard-compat-detect-media-type-sound ()
+  "Test media type detection for SOUND."
+  (should (string= (ecard-compat--detect-media-type "SOUND" nil)
+                   "audio/basic")))
+
+(ert-deftest ecard-compat-detect-media-type-uri ()
+  "Test media type detection returns nil for VALUE=uri."
+  (should (null (ecard-compat--detect-media-type
+                 "PHOTO" '(("VALUE" . "uri"))))))
+
+(ert-deftest ecard-compat-detect-media-type-unknown ()
+  "Test media type detection for unknown property."
+  (should (null (ecard-compat--detect-media-type "NOTE" nil))))
+
+;;; Data URI extraction tests
+
+(ert-deftest ecard-compat-extract-data-uri ()
+  "Test data URI extraction."
+  (let ((result (ecard-compat--extract-data-uri
+                 "data:image/jpeg;base64,/9j/4AAQ")))
+    (should result)
+    (should (equal (car result) "image/jpeg"))
+    (should (equal (cdr result) "/9j/4AAQ"))))
+
+(ert-deftest ecard-compat-extract-data-uri-nil ()
+  "Test data URI extraction with nil input."
+  (should (null (ecard-compat--extract-data-uri nil))))
+
+(ert-deftest ecard-compat-extract-data-uri-non-data ()
+  "Test data URI extraction with non-data URI."
+  (should (null (ecard-compat--extract-data-uri "https://example.com/photo.jpg"))))
+
+(ert-deftest ecard-compat-extract-data-uri-malformed ()
+  "Test data URI extraction with malformed data URI."
+  (should (null (ecard-compat--extract-data-uri "data:broken"))))
+
+;;; Quoted-printable encoding tests
+
+(ert-deftest ecard-compat-needs-quoted-printable-p ()
+  "Test detection of non-ASCII characters."
+  (should-not (ecard-compat--needs-quoted-printable-p "Hello"))
+  (should (ecard-compat--needs-quoted-printable-p "José"))
+  (should-not (ecard-compat--needs-quoted-printable-p nil))
+  (should-not (ecard-compat--needs-quoted-printable-p ""))
+  (should-not (ecard-compat--needs-quoted-printable-p 42)))
+
+(ert-deftest ecard-compat-encode-quoted-printable ()
+  "Test QUOTED-PRINTABLE encoding."
+  (should (string= (ecard-compat--encode-quoted-printable "Hello")
+                   "Hello"))
+  ;; Space (32) should be encoded since < 33
+  (should (string= (ecard-compat--encode-quoted-printable "A B")
+                   "A=20B"))
+  ;; = sign should be encoded
+  (should (string= (ecard-compat--encode-quoted-printable "A=B")
+                   "A=3DB")))
+
+(ert-deftest ecard-compat-encode-quoted-printable-non-ascii ()
+  "Test QUOTED-PRINTABLE encoding of non-ASCII characters."
+  (let ((result (ecard-compat--encode-quoted-printable "é")))
+    ;; UTF-8 encoding of é is C3 A9
+    (should (string= result "=C3=A9"))))
+
+;;; Format parameters 3.0 tests
+
+(ert-deftest ecard-compat-format-parameters-30-empty ()
+  "Test formatting empty parameters."
+  (should (string= (ecard-compat--format-parameters-30 nil) "")))
+
+(ert-deftest ecard-compat-format-parameters-30-key-value ()
+  "Test formatting key=value parameters."
+  (let ((result (ecard-compat--format-parameters-30
+                 '(("TYPE" . "HOME") ("CHARSET" . "UTF-8")))))
+    (should (string= result "TYPE=HOME;CHARSET=UTF-8"))))
+
+(ert-deftest ecard-compat-format-parameters-30-bare ()
+  "Test formatting bare parameters (value is t)."
+  (let ((result (ecard-compat--format-parameters-30
+                 '(("HOME" . t)))))
+    (should (string= result "HOME"))))
+
+;;; Convert params to 3.0 tests
+
+(ert-deftest ecard-compat-convert-params-to-30-type ()
+  "Test TYPE parameter conversion to vCard 3.0 (uppercased)."
+  (let ((result (ecard-compat--convert-params-to-30
+                 '(("TYPE" . "home,work")) "TEL" "+1-555")))
+    (should (assoc "TYPE" result))
+    (should (string= (cdr (assoc "TYPE" result)) "HOME,WORK"))))
+
+(ert-deftest ecard-compat-convert-params-to-30-value ()
+  "Test VALUE parameter conversion to vCard 3.0."
+  (let ((result (ecard-compat--convert-params-to-30
+                 '(("VALUE" . "uri")) "PHOTO" "https://example.com")))
+    (should (assoc "VALUE" result))
+    (should (string= (cdr (assoc "VALUE" result)) "URI"))))
+
+(ert-deftest ecard-compat-convert-params-to-30-non-ascii ()
+  "Test CHARSET=UTF-8 added for non-ASCII text."
+  (let ((result (ecard-compat--convert-params-to-30
+                 nil "FN" "José García")))
+    (should (assoc "CHARSET" result))
+    (should (string= (cdr (assoc "CHARSET" result)) "UTF-8"))))
+
+(ert-deftest ecard-compat-convert-params-to-30-binary-no-charset ()
+  "Test CHARSET not added for binary properties."
+  (let ((result (ecard-compat--convert-params-to-30
+                 nil "PHOTO" "binary-data-with-non-ascii")))
+    ;; PHOTO is binary, should not get CHARSET
+    (should (null (assoc "CHARSET" result)))))
+
+;;; Format property 3.0 tests
+
+(ert-deftest ecard-compat-format-property-30-simple ()
+  "Test simple property formatting for vCard 3.0."
+  (let ((prop (ecard-property :name "FN" :value "John Doe")))
+    (let ((result (ecard-compat--format-property-30 prop)))
+      (should (string= result "FN:John Doe")))))
+
+(ert-deftest ecard-compat-format-property-30-with-type ()
+  "Test property formatting with TYPE parameter."
+  (let ((prop (ecard-property :name "TEL"
+                              :value "+1-555-1234"
+                              :parameters '(("TYPE" . "home,voice")))))
+    (let ((result (ecard-compat--format-property-30 prop)))
+      (should (string-match-p "TEL;TYPE=HOME,VOICE:\\+1-555-1234" result)))))
+
+(ert-deftest ecard-compat-format-property-30-with-group ()
+  "Test property formatting with group prefix."
+  (let ((prop (ecard-property :name "EMAIL"
+                              :value "test@example.com"
+                              :group "item1")))
+    (let ((result (ecard-compat--format-property-30 prop)))
+      (should (string-match-p "^item1\\.EMAIL:test@example\\.com$" result)))))
+
+(ert-deftest ecard-compat-format-property-30-structured ()
+  "Test property formatting with structured value (semicolons)."
+  (let ((prop (ecard-property :name "N"
+                              :value '("Doe" "John" "Q" "Mr" "Jr"))))
+    (let ((result (ecard-compat--format-property-30 prop)))
+      (should (string-match-p "N:Doe;John;Q;Mr;Jr" result)))))
+
+(ert-deftest ecard-compat-format-property-30-categories ()
+  "Test property formatting with text-list value (commas)."
+  (let ((prop (ecard-property :name "CATEGORIES"
+                              :value '("Work" "Friend"))))
+    (let ((result (ecard-compat--format-property-30 prop)))
+      (should (string-match-p "CATEGORIES:Work,Friend" result)))))
+
+(ert-deftest ecard-compat-format-property-30-data-uri-photo ()
+  "Test property formatting converts data URI to BASE64 for binary."
+  (let ((prop (ecard-property :name "PHOTO"
+                              :value "data:image/jpeg;base64,/9j/4AAQ")))
+    (let ((result (ecard-compat--format-property-30 prop)))
+      (should (string-match-p "ENCODING=BASE64" result))
+      (should (string-match-p "/9j/4AAQ" result)))))
+
+;;; Serialize properties 3.0 tests
+
+(ert-deftest ecard-compat-serialize-properties-30-single ()
+  "Test serializing a single property."
+  (let* ((props (list (ecard-property :name "EMAIL" :value "test@example.com")))
+         (lines (ecard-compat--serialize-properties-30 props)))
+    (should (> (length lines) 0))
+    (should (cl-some (lambda (l) (string-match-p "EMAIL:test@example.com" l)) lines))))
+
+(ert-deftest ecard-compat-serialize-properties-30-text-list-combine ()
+  "Test serializing multiple text-list properties combines them."
+  (let* ((props (list (ecard-property :name "CATEGORIES" :value "Work")
+                      (ecard-property :name "CATEGORIES" :value "VIP")))
+         (lines (ecard-compat--serialize-properties-30 props)))
+    ;; Should combine into one CATEGORIES line
+    (should (cl-some (lambda (l) (string-match-p "CATEGORIES:Work,VIP" l)) lines))))
+
+(ert-deftest ecard-compat-serialize-properties-30-text-list-single ()
+  "Test serializing single text-list property with list value."
+  (let* ((props (list (ecard-property :name "CATEGORIES"
+                                      :value '("A" "B" "C"))))
+         (lines (ecard-compat--serialize-properties-30 props)))
+    (should (cl-some (lambda (l) (string-match-p "CATEGORIES:A,B,C" l)) lines))))
+
+;;; Parse file tests
+
+(ert-deftest ecard-compat-parse-file-single ()
+  "Test parsing a single vCard from file."
+  (let ((temp-file (make-temp-file "ecard-test-" nil ".vcf")))
+    (unwind-protect
+        (progn
+          (with-temp-file temp-file
+            (insert "BEGIN:VCARD\n")
+            (insert "VERSION:3.0\n")
+            (insert "FN:File Test\n")
+            (insert "EMAIL:file@example.com\n")
+            (insert "END:VCARD\n"))
+          (let ((result (ecard-compat-parse-file temp-file)))
+            (should (ecard-p result))
+            (should (equal (ecard-get-property-value result 'fn) "File Test"))))
+      (delete-file temp-file))))
+
+(ert-deftest ecard-compat-parse-file-multiple ()
+  "Test parsing multiple vCards from file."
+  (let ((temp-file (make-temp-file "ecard-test-" nil ".vcf")))
+    (unwind-protect
+        (progn
+          (with-temp-file temp-file
+            (insert "BEGIN:VCARD\nVERSION:3.0\nFN:First\nEND:VCARD\n")
+            (insert "BEGIN:VCARD\nVERSION:3.0\nFN:Second\nEND:VCARD\n"))
+          (let ((result (ecard-compat-parse-file temp-file)))
+            (should (listp result))
+            (should (= (length result) 2))))
+      (delete-file temp-file))))
+
+;;; vCard 3.0 parameter conversion tests (additional)
+
+(ert-deftest ecard-compat-convert-params-30-encoding ()
+  "Test vCard 3.0 ENCODING parameter extraction."
+  (let* ((params '(("ENCODING" . "b")))
+         (result (ecard-compat--convert-params-30 params "PHOTO")))
+    (should (string= (plist-get result :encoding) "b"))))
+
+(ert-deftest ecard-compat-convert-params-30-charset ()
+  "Test vCard 3.0 CHARSET parameter extraction."
+  (let* ((params '(("CHARSET" . "ISO-8859-1")))
+         (result (ecard-compat--convert-params-30 params "NOTE")))
+    (should (string= (plist-get result :charset) "ISO-8859-1"))))
+
+(ert-deftest ecard-compat-convert-params-30-value-lowercase ()
+  "Test vCard 3.0 VALUE parameter lowercased."
+  (let* ((params '(("VALUE" . "URI")))
+         (result (ecard-compat--convert-params-30 params "PHOTO"))
+         (converted (plist-get result :params)))
+    (should (equal (cdr (assoc "VALUE" converted)) "uri"))))
+
+(ert-deftest ecard-compat-convert-params-30-drops-internet ()
+  "Test vCard 3.0 drops INTERNET type value."
+  (let* ((params '(("TYPE" . "INTERNET")))
+         (result (ecard-compat--convert-params-30 params "EMAIL"))
+         (converted (plist-get result :params)))
+    ;; INTERNET maps to nil, so TYPE should be dropped
+    (should (null (assoc "TYPE" converted)))))
+
+;;; vCard 2.1 parameter conversion tests (additional)
+
+(ert-deftest ecard-compat-convert-params-21-value ()
+  "Test vCard 2.1 VALUE parameter conversion."
+  (let* ((params '(("VALUE" . "URI")))
+         (result (ecard-compat--convert-params-21 params "PHOTO"))
+         (converted (plist-get result :params)))
+    (should (equal (cdr (assoc "VALUE" converted)) "uri"))))
+
+(ert-deftest ecard-compat-convert-params-21-pref ()
+  "Test vCard 2.1 PREF type indicator conversion."
+  (let* ((params '(("PREF" . t) ("HOME" . t)))
+         (result (ecard-compat--convert-params-21 params "TEL"))
+         (converted (plist-get result :params)))
+    (should (assoc "TYPE" converted))
+    (should (string-match-p "pref" (cdr (assoc "TYPE" converted))))
+    (should (string-match-p "home" (cdr (assoc "TYPE" converted))))))
+
+(ert-deftest ecard-compat-convert-params-21-other-params ()
+  "Test vCard 2.1 passes through unknown parameters."
+  (let* ((params '(("X-CUSTOM" . "value")))
+         (result (ecard-compat--convert-params-21 params "TEL"))
+         (converted (plist-get result :params)))
+    (should (assoc "X-CUSTOM" converted))))
+
+;;; Property should-include tests (additional)
+
+(ert-deftest ecard-compat-should-include-property-agent ()
+  "Test AGENT property is dropped."
+  (should-not (ecard-compat--should-include-property-p "AGENT")))
+
+(ert-deftest ecard-compat-should-include-property-name ()
+  "Test NAME property is dropped."
+  (should-not (ecard-compat--should-include-property-p "NAME")))
+
+(ert-deftest ecard-compat-should-include-property-x-custom ()
+  "Test X-* properties are included."
+  (should (ecard-compat--should-include-property-p "X-CUSTOM")))
+
+;;; vCard 4.0 fallback to 3.0 parser tests
+
+(ert-deftest ecard-compat-parse-40-malformed-fallback ()
+  "Test that malformed vCard 4.0 falls back to legacy parser."
+  ;; A vCard 4.0 with a property line that might cause strict parser to fail
+  ;; but legacy parser can handle
+  (let* ((ecard-40 "BEGIN:VCARD
+VERSION:4.0
+FN:Fallback Test
+TEL:555-1234
+END:VCARD")
+         (vc (ecard-compat-parse ecard-40)))
+    (should (ecard-p vc))
+    (should (string= (ecard-get-property-value vc 'fn) "Fallback Test"))))
+
+;;; vCard 2.1 with multiple encodings
+
+(ert-deftest ecard-compat-parse-21-mixed-encodings ()
+  "Test parsing vCard 2.1 with mixed encoding types."
+  (let* ((ecard-21 "BEGIN:VCARD
+VERSION:2.1
+FN:Test Mixed
+NOTE;ENCODING=QUOTED-PRINTABLE:Hello=20World
+PHOTO;ENCODING=BASE64;TYPE=JPEG:SGVsbG8=
+END:VCARD")
+         (vc (ecard-compat-parse-21 ecard-21)))
+    (should (ecard-p vc))
+    (should (string= (ecard-get-property-value vc 'note) "Hello World"))
+    ;; Photo should be a data URI
+    (let ((photo (ecard-get-property-value vc 'photo)))
+      (should (string-prefix-p "data:" photo)))))
+
+;;; Version detection edge cases
+
+(ert-deftest ecard-compat-detect-version-missing ()
+  "Test detection when VERSION is missing entirely."
+  (should (null (ecard-compat--detect-version "BEGIN:VCARD\nFN:Test\nEND:VCARD"))))
+
+(ert-deftest ecard-compat-detect-version-with-spaces ()
+  "Test detection with spaces around version number."
+  (should (eq (ecard-compat--detect-version "VERSION: 3.0") 'v30)))
+
 (provide 'ecard-compat-test)
 ;;; ecard-compat-test.el ends here

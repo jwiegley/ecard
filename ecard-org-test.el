@@ -1460,5 +1460,721 @@ END:VCARD"))
               (should (string= (ecard-get-property-value vc1 'title)
                               (ecard-get-property-value vc2 'title))))))))))
 
+;;; 10. Internal Helper Function Tests
+
+(ert-deftest ecard-org-test-is-contact-p-with-vcard ()
+  "Test is-contact-p returns non-nil for entry with VCARD property."
+  (let ((ecard-org-require-ecard-property t))
+    (ecard-org-test-with-temp-org-buffer ecard-org-test-simple-entry
+      (should (ecard-org--is-contact-p)))))
+
+(ert-deftest ecard-org-test-is-contact-p-without-vcard-strict ()
+  "Test is-contact-p returns nil without VCARD in strict mode."
+  (let ((ecard-org-require-ecard-property t))
+    (ecard-org-test-with-temp-org-buffer ecard-org-test-no-ecard-marker
+      (should-not (ecard-org--is-contact-p)))))
+
+(ert-deftest ecard-org-test-is-contact-p-auto-detect-with-email ()
+  "Test is-contact-p auto-detects entry with EMAIL."
+  (let ((ecard-org-require-ecard-property nil))
+    (ecard-org-test-with-temp-org-buffer ecard-org-test-no-ecard-marker
+      (should (ecard-org--is-contact-p)))))
+
+(ert-deftest ecard-org-test-is-contact-p-auto-detect-no-contact-props ()
+  "Test is-contact-p does not auto-detect non-contact entry."
+  (let ((ecard-org-require-ecard-property nil))
+    (ecard-org-test-with-temp-org-buffer ecard-org-test-non-contact
+      (should-not (ecard-org--is-contact-p)))))
+
+(ert-deftest ecard-org-test-looks-like-contact-p-with-email ()
+  "Test looks-like-contact-p detects EMAIL."
+  (ecard-org-test-with-temp-org-buffer
+      "* Test\n:PROPERTIES:\n:EMAIL: test@example.com\n:END:\n"
+    (should (ecard-org--looks-like-contact-p))))
+
+(ert-deftest ecard-org-test-looks-like-contact-p-with-phone ()
+  "Test looks-like-contact-p detects PHONE."
+  (ecard-org-test-with-temp-org-buffer
+      "* Test\n:PROPERTIES:\n:PHONE: 555-1234\n:END:\n"
+    (should (ecard-org--looks-like-contact-p))))
+
+(ert-deftest ecard-org-test-looks-like-contact-p-with-mobile ()
+  "Test looks-like-contact-p detects MOBILE."
+  (ecard-org-test-with-temp-org-buffer
+      "* Test\n:PROPERTIES:\n:MOBILE: 555-1234\n:END:\n"
+    (should (ecard-org--looks-like-contact-p))))
+
+(ert-deftest ecard-org-test-looks-like-contact-p-with-org ()
+  "Test looks-like-contact-p detects ORG."
+  (ecard-org-test-with-temp-org-buffer
+      "* Test\n:PROPERTIES:\n:ORG: Acme Corp\n:END:\n"
+    (should (ecard-org--looks-like-contact-p))))
+
+(ert-deftest ecard-org-test-looks-like-contact-p-no-contact-props ()
+  "Test looks-like-contact-p returns nil for non-contact."
+  (ecard-org-test-with-temp-org-buffer ecard-org-test-non-contact
+    (should-not (ecard-org--looks-like-contact-p))))
+
+;;; params-match-p tests
+
+(ert-deftest ecard-org-test-params-match-nil-target ()
+  "Test params-match-p with nil target matches anything."
+  (should (ecard-org--params-match-p '(("TYPE" . "work")) nil))
+  (should (ecard-org--params-match-p nil nil))
+  (should (ecard-org--params-match-p '(("TYPE" . "home") ("PREF" . "1")) nil)))
+
+(ert-deftest ecard-org-test-params-match-exact ()
+  "Test params-match-p with exact match."
+  (should (ecard-org--params-match-p
+           '(("TYPE" . "work"))
+           '(("TYPE" . "work")))))
+
+(ert-deftest ecard-org-test-params-match-case-insensitive ()
+  "Test params-match-p is case-insensitive."
+  (should (ecard-org--params-match-p
+           '(("TYPE" . "WORK"))
+           '(("TYPE" . "work"))))
+  (should (ecard-org--params-match-p
+           '(("TYPE" . "Home"))
+           '(("TYPE" . "home")))))
+
+(ert-deftest ecard-org-test-params-match-subset ()
+  "Test params-match-p with target as subset of actual."
+  (should (ecard-org--params-match-p
+           '(("TYPE" . "work") ("PREF" . "1"))
+           '(("TYPE" . "work")))))
+
+(ert-deftest ecard-org-test-params-no-match ()
+  "Test params-match-p with non-matching params."
+  (should-not (ecard-org--params-match-p
+               '(("TYPE" . "home"))
+               '(("TYPE" . "work"))))
+  (should-not (ecard-org--params-match-p
+               nil
+               '(("TYPE" . "work")))))
+
+(ert-deftest ecard-org-test-params-match-missing-param ()
+  "Test params-match-p when target param not in actual."
+  (should-not (ecard-org--params-match-p
+               '(("PREF" . "1"))
+               '(("TYPE" . "work")))))
+
+;;; find-org-prop-for-ecard-prop tests
+
+(ert-deftest ecard-org-test-find-org-prop-email-no-params ()
+  "Test finding Org property for email with no params."
+  (should (equal "EMAIL"
+                 (ecard-org--find-org-prop-for-ecard-prop 'email nil))))
+
+(ert-deftest ecard-org-test-find-org-prop-email-home ()
+  "Test finding Org property for email with TYPE=home."
+  (should (equal "EMAIL"
+                 (ecard-org--find-org-prop-for-ecard-prop
+                  'email '(("TYPE" . "home"))))))
+
+(ert-deftest ecard-org-test-find-org-prop-tel-cell ()
+  "Test finding Org property for tel with TYPE=cell."
+  (should (equal "MOBILE"
+                 (ecard-org--find-org-prop-for-ecard-prop
+                  'tel '(("TYPE" . "cell"))))))
+
+(ert-deftest ecard-org-test-find-org-prop-tel-work-voice ()
+  "Test finding Org property for tel with TYPE=work,voice."
+  (should (equal "PHONE_WORK"
+                 (ecard-org--find-org-prop-for-ecard-prop
+                  'tel '(("TYPE" . "work,voice"))))))
+
+(ert-deftest ecard-org-test-find-org-prop-adr-home ()
+  "Test finding Org property for adr with TYPE=home."
+  (should (equal "ADDRESS_HOME"
+                 (ecard-org--find-org-prop-for-ecard-prop
+                  'adr '(("TYPE" . "home"))))))
+
+(ert-deftest ecard-org-test-find-org-prop-geo ()
+  "Test finding Org property for geo."
+  (should (equal "LOCATION"
+                 (ecard-org--find-org-prop-for-ecard-prop 'geo nil))))
+
+(ert-deftest ecard-org-test-find-org-prop-uid ()
+  "Test finding Org property for uid."
+  (should (equal "ID"
+                 (ecard-org--find-org-prop-for-ecard-prop 'uid nil))))
+
+(ert-deftest ecard-org-test-find-org-prop-no-match ()
+  "Test finding Org property for unmapped slot."
+  (should-not (ecard-org--find-org-prop-for-ecard-prop 'fburl nil)))
+
+;;; format-ecard-value tests
+
+(ert-deftest ecard-org-test-format-uid-with-prefix ()
+  "Test formatting UID strips urn:uuid: prefix."
+  (should (equal "abc-123"
+                 (ecard-org--format-ecard-value "urn:uuid:abc-123" 'uid))))
+
+(ert-deftest ecard-org-test-format-uid-without-prefix ()
+  "Test formatting UID without urn:uuid: prefix."
+  (should (equal "plain-id"
+                 (ecard-org--format-ecard-value "plain-id" 'uid))))
+
+(ert-deftest ecard-org-test-format-org-list ()
+  "Test formatting ORG as semicolon-separated."
+  (should (equal "Company;Department;Division"
+                 (ecard-org--format-ecard-value
+                  '("Company" "Department" "Division") 'org))))
+
+(ert-deftest ecard-org-test-format-adr-list ()
+  "Test formatting ADR as semicolon-separated."
+  (should (equal ";123 Main St;City;ST;12345"
+                 (ecard-org--format-ecard-value
+                  '("" "123 Main St" "City" "ST" "12345") 'adr))))
+
+(ert-deftest ecard-org-test-format-n-list ()
+  "Test formatting N as semicolon-separated."
+  (should (equal "Doe;John;Q;Mr.;Jr."
+                 (ecard-org--format-ecard-value
+                  '("Doe" "John" "Q" "Mr." "Jr.") 'n))))
+
+(ert-deftest ecard-org-test-format-categories-list ()
+  "Test formatting CATEGORIES as comma-separated."
+  (should (equal "cat1,cat2,cat3"
+                 (ecard-org--format-ecard-value
+                  '("cat1" "cat2" "cat3") 'categories))))
+
+(ert-deftest ecard-org-test-format-nickname-list ()
+  "Test formatting NICKNAME as comma-separated."
+  (should (equal "Nick1,Nick2"
+                 (ecard-org--format-ecard-value
+                  '("Nick1" "Nick2") 'nickname))))
+
+(ert-deftest ecard-org-test-format-simple-string ()
+  "Test formatting simple string value."
+  (should (equal "test@example.com"
+                 (ecard-org--format-ecard-value "test@example.com" 'email))))
+
+(ert-deftest ecard-org-test-format-non-string ()
+  "Test formatting non-string value."
+  (should (equal "42"
+                 (ecard-org--format-ecard-value 42 'note))))
+
+;;; parse-org-value tests
+
+(ert-deftest ecard-org-test-parse-uid-adds-prefix ()
+  "Test parsing UID adds urn:uuid: prefix."
+  (should (equal "urn:uuid:abc-123"
+                 (ecard-org--parse-org-value "abc-123" 'uid))))
+
+(ert-deftest ecard-org-test-parse-uid-preserves-existing-prefix ()
+  "Test parsing UID preserves existing urn:uuid: prefix."
+  (should (equal "urn:uuid:abc-123"
+                 (ecard-org--parse-org-value "urn:uuid:abc-123" 'uid))))
+
+(ert-deftest ecard-org-test-parse-org-semicolon ()
+  "Test parsing ORG splits on semicolons."
+  (should (equal '("Company" "Dept" "Div")
+                 (ecard-org--parse-org-value "Company;Dept;Div" 'org))))
+
+(ert-deftest ecard-org-test-parse-adr-semicolon ()
+  "Test parsing ADR splits on semicolons."
+  (should (equal '("123 Main St" "City" "ST" "12345")
+                 (ecard-org--parse-org-value "123 Main St;City;ST;12345" 'adr))))
+
+(ert-deftest ecard-org-test-parse-n-semicolon ()
+  "Test parsing N splits on semicolons."
+  (should (equal '("Doe" "John" "Q")
+                 (ecard-org--parse-org-value "Doe;John;Q" 'n))))
+
+(ert-deftest ecard-org-test-parse-categories-comma ()
+  "Test parsing CATEGORIES splits on commas."
+  (should (equal '("cat1" "cat2" "cat3")
+                 (ecard-org--parse-org-value "cat1,cat2,cat3" 'categories))))
+
+(ert-deftest ecard-org-test-parse-categories-with-whitespace ()
+  "Test parsing CATEGORIES trims whitespace."
+  (should (equal '("cat1" "cat2" "cat3")
+                 (ecard-org--parse-org-value "cat1 , cat2 , cat3" 'categories))))
+
+(ert-deftest ecard-org-test-parse-nickname-comma ()
+  "Test parsing NICKNAME splits on commas."
+  (should (equal '("Nick1" "Nick2")
+                 (ecard-org--parse-org-value "Nick1,Nick2" 'nickname))))
+
+(ert-deftest ecard-org-test-parse-simple-string ()
+  "Test parsing simple string returns as-is."
+  (should (equal "test@example.com"
+                 (ecard-org--parse-org-value "test@example.com" 'email))))
+
+;;; 11. Export Command Tests
+
+(ert-deftest ecard-org-test-export-buffer-to-file ()
+  "Test exporting buffer creates file with vCard data."
+  (let ((temp-file (make-temp-file "ecard-org-test" nil ".vcf")))
+    (unwind-protect
+        (ecard-org-test-with-temp-org-buffer ecard-org-test-simple-entry
+          (let ((count (ecard-org-export-buffer temp-file)))
+            (should (= count 1))
+            (should (file-exists-p temp-file))
+            ;; Verify file contents
+            (with-temp-buffer
+              (insert-file-contents temp-file)
+              (let ((content (buffer-string)))
+                (should (string-match-p "BEGIN:VCARD" content))
+                (should (string-match-p "FN:John Doe" content))
+                (should (string-match-p "END:VCARD" content))))))
+      (when (file-exists-p temp-file)
+        (delete-file temp-file)))))
+
+(ert-deftest ecard-org-test-export-buffer-multiple-contacts ()
+  "Test exporting buffer with multiple contacts."
+  (let ((temp-file (make-temp-file "ecard-org-test" nil ".vcf")))
+    (unwind-protect
+        (ecard-org-test-with-temp-org-buffer ecard-org-test-multiple-entries
+          (let ((count (ecard-org-export-buffer temp-file)))
+            (should (= count 3))
+            (with-temp-buffer
+              (insert-file-contents temp-file)
+              (let ((content (buffer-string)))
+                ;; Should have 3 BEGIN:VCARD markers
+                (should (= 3 (cl-count-if
+                               (lambda (pos) (string-match-p "BEGIN:VCARD" (substring content pos)))
+                               (let ((positions nil)
+                                     (start 0))
+                                 (while (string-match "BEGIN:VCARD" content start)
+                                   (push (match-beginning 0) positions)
+                                   (setq start (match-end 0)))
+                                 positions))))))))
+      (when (file-exists-p temp-file)
+        (delete-file temp-file)))))
+
+(ert-deftest ecard-org-test-export-buffer-no-contacts ()
+  "Test exporting buffer with no contacts returns nil."
+  (let ((temp-file (make-temp-file "ecard-org-test" nil ".vcf")))
+    (unwind-protect
+        (ecard-org-test-with-temp-org-buffer ecard-org-test-non-contact
+          (should-not (ecard-org-export-buffer temp-file)))
+      (when (file-exists-p temp-file)
+        (delete-file temp-file)))))
+
+(ert-deftest ecard-org-test-export-region-to-file ()
+  "Test exporting region creates file with selected contacts."
+  (let ((temp-file (make-temp-file "ecard-org-test" nil ".vcf")))
+    (unwind-protect
+        (ecard-org-test-with-temp-org-buffer ecard-org-test-multiple-entries
+          (goto-char (point-min))
+          (set-mark (point))
+          (search-forward "* Carol Brown")
+          (beginning-of-line)
+          (activate-mark)
+          (let ((count (ecard-org-export-region temp-file)))
+            (should (= count 2))
+            (should (file-exists-p temp-file))
+            (with-temp-buffer
+              (insert-file-contents temp-file)
+              (let ((content (buffer-string)))
+                (should (string-match-p "Alice Johnson" content))
+                (should (string-match-p "Bob Wilson" content))
+                (should-not (string-match-p "Carol Brown" content))))))
+      (when (file-exists-p temp-file)
+        (delete-file temp-file)))))
+
+(ert-deftest ecard-org-test-export-region-no-region ()
+  "Test exporting region without active region errors."
+  (let ((temp-file (make-temp-file "ecard-org-test" nil ".vcf")))
+    (unwind-protect
+        (ecard-org-test-with-temp-org-buffer ecard-org-test-simple-entry
+          (deactivate-mark)
+          (should-error (ecard-org-export-region temp-file) :type 'user-error))
+      (when (file-exists-p temp-file)
+        (delete-file temp-file)))))
+
+(ert-deftest ecard-org-test-export-region-no-contacts ()
+  "Test exporting region with no contacts returns nil."
+  (let ((temp-file (make-temp-file "ecard-org-test" nil ".vcf")))
+    (unwind-protect
+        (ecard-org-test-with-temp-org-buffer ecard-org-test-non-contact
+          (goto-char (point-min))
+          (set-mark (point))
+          (goto-char (point-max))
+          (activate-mark)
+          (should-not (ecard-org-export-region temp-file)))
+      (when (file-exists-p temp-file)
+        (delete-file temp-file)))))
+
+(ert-deftest ecard-org-test-export-subtree-to-file ()
+  "Test exporting subtree creates file with subtree contacts."
+  (let ((temp-file (make-temp-file "ecard-org-test" nil ".vcf")))
+    (unwind-protect
+        (ecard-org-test-with-temp-org-buffer ecard-org-test-nested-contacts
+          (goto-char (point-min))
+          (let ((count (ecard-org-export-subtree temp-file)))
+            (should (= count 3))
+            (should (file-exists-p temp-file))
+            (with-temp-buffer
+              (insert-file-contents temp-file)
+              (let ((content (buffer-string)))
+                (should (string-match-p "Parent Entry" content))
+                (should (string-match-p "Child Entry" content))
+                (should (string-match-p "Grandchild Entry" content))))))
+      (when (file-exists-p temp-file)
+        (delete-file temp-file)))))
+
+(ert-deftest ecard-org-test-export-subtree-no-contacts ()
+  "Test exporting subtree with no contacts returns nil."
+  (let ((temp-file (make-temp-file "ecard-org-test" nil ".vcf")))
+    (unwind-protect
+        (ecard-org-test-with-temp-org-buffer ecard-org-test-non-contact
+          (goto-char (point-min))
+          (should-not (ecard-org-export-subtree temp-file)))
+      (when (file-exists-p temp-file)
+        (delete-file temp-file)))))
+
+;;; 12. Import Command Tests
+
+(ert-deftest ecard-org-test-import-buffer-vcard-data ()
+  "Test importing vCard data from a buffer."
+  (let ((vcard-data (concat
+                     (ecard-serialize (ecard-create :fn "Import One" :email "one@test.com"))
+                     "\n"
+                     (ecard-serialize (ecard-create :fn "Import Two" :email "two@test.com")))))
+    (with-temp-buffer
+      (insert vcard-data)
+      (let ((vcard-buf (current-buffer)))
+        (with-temp-buffer
+          (org-mode)
+          (let ((count (ecard-org-import-buffer vcard-buf)))
+            (should (= count 2))
+            (let ((content (buffer-string)))
+              (should (string-match-p "Import One" content))
+              (should (string-match-p "Import Two" content))
+              (should (string-match-p ":EMAIL: one@test.com" content))
+              (should (string-match-p ":EMAIL: two@test.com" content)))))))))
+
+(ert-deftest ecard-org-test-import-buffer-empty ()
+  "Test importing from buffer with no vCards returns nil."
+  (with-temp-buffer
+    (insert "This is not vCard data")
+    (let ((vcard-buf (current-buffer)))
+      (with-temp-buffer
+        (org-mode)
+        (should-not (ecard-org-import-buffer vcard-buf))))))
+
+(ert-deftest ecard-org-test-import-buffer-at-specific-level ()
+  "Test importing at specific heading level."
+  (let ((vcard-data (ecard-serialize (ecard-create :fn "Level Test"))))
+    (with-temp-buffer
+      (insert vcard-data)
+      (let ((vcard-buf (current-buffer)))
+        (with-temp-buffer
+          (org-mode)
+          (ecard-org-import-buffer vcard-buf 2)
+          (let ((content (buffer-string)))
+            (should (string-match-p "^\\*\\* Level Test" content))))))))
+
+(ert-deftest ecard-org-test-import-region-vcard-data ()
+  "Test importing vCard data from a region."
+  (let ((vcard-data (ecard-serialize (ecard-create :fn "Region Import"
+                                                    :email "region@test.com"))))
+    (with-temp-buffer
+      (org-mode)
+      (insert vcard-data)
+      (let ((count (ecard-org-import-region (point-min) (point-max))))
+        (should (= count 1))
+        (let ((content (buffer-string)))
+          (should (string-match-p "Region Import" content))
+          (should (string-match-p ":EMAIL: region@test.com" content)))))))
+
+(ert-deftest ecard-org-test-import-region-empty ()
+  "Test importing region with no vCards."
+  (with-temp-buffer
+    (org-mode)
+    (insert "Not vCard data")
+    (should-not (ecard-org-import-region (point-min) (point-max)))))
+
+(ert-deftest ecard-org-test-import-region-at-level ()
+  "Test importing region at specific level."
+  (let ((vcard-data (ecard-serialize (ecard-create :fn "Level Region Test"))))
+    (with-temp-buffer
+      (org-mode)
+      (insert vcard-data)
+      (ecard-org-import-region (point-min) (point-max) 3)
+      (let ((content (buffer-string)))
+        (should (string-match-p "^\\*\\*\\* Level Region Test" content))))))
+
+(ert-deftest ecard-org-test-import-file-multiple ()
+  "Test importing multiple vCards from file."
+  (let ((temp-file (make-temp-file "ecard-org-test" nil ".vcf")))
+    (unwind-protect
+        (progn
+          (with-temp-file temp-file
+            (insert (ecard-serialize (ecard-create :fn "File One")))
+            (insert "\n")
+            (insert (ecard-serialize (ecard-create :fn "File Two"))))
+          (with-temp-buffer
+            (org-mode)
+            (let ((count (ecard-org-import-file temp-file)))
+              (should (= count 2))
+              (let ((content (buffer-string)))
+                (should (string-match-p "File One" content))
+                (should (string-match-p "File Two" content))))))
+      (when (file-exists-p temp-file)
+        (delete-file temp-file)))))
+
+(ert-deftest ecard-org-test-import-file-at-level ()
+  "Test importing file at specific heading level."
+  (let ((temp-file (make-temp-file "ecard-org-test" nil ".vcf")))
+    (unwind-protect
+        (progn
+          (with-temp-file temp-file
+            (insert (ecard-serialize (ecard-create :fn "Level File One")))
+            (insert "\n")
+            (insert (ecard-serialize (ecard-create :fn "Level File Two"))))
+          (with-temp-buffer
+            (org-mode)
+            (ecard-org-import-file temp-file 2)
+            (let ((content (buffer-string)))
+              (should (string-match-p "^\\*\\* Level File One" content))
+              (should (string-match-p "^\\*\\* Level File Two" content)))))
+      (when (file-exists-p temp-file)
+        (delete-file temp-file)))))
+
+;;; 13. Validate Entry Tests
+
+(ert-deftest ecard-org-test-validate-valid-entry ()
+  "Test validate-entry returns t for valid entry."
+  (ecard-org-test-with-temp-org-buffer ecard-org-test-simple-entry
+    (should (ecard-org-validate-entry))))
+
+(ert-deftest ecard-org-test-validate-complex-valid ()
+  "Test validate-entry returns t for complex valid entry."
+  (ecard-org-test-with-temp-org-buffer ecard-org-test-complex-entry
+    (should (ecard-org-validate-entry))))
+
+(ert-deftest ecard-org-test-validate-no-vcard-marker ()
+  "Test validate-entry warns about missing VCARD marker."
+  (let ((ecard-org-require-ecard-property t))
+    (ecard-org-test-with-temp-org-buffer ecard-org-test-no-ecard-marker
+      (should-not (ecard-org-validate-entry)))))
+
+(ert-deftest ecard-org-test-validate-empty-heading ()
+  "Test validate-entry fails for empty heading."
+  (ecard-org-test-with-temp-org-buffer
+      "* \n:PROPERTIES:\n:VCARD: t\n:END:\n"
+    (should-not (ecard-org-validate-entry))))
+
+(ert-deftest ecard-org-test-validate-org-without-semicolons ()
+  "Test validate-entry warns about ORG without semicolons."
+  (ecard-org-test-with-temp-org-buffer
+      "* Test\n:PROPERTIES:\n:VCARD: t\n:ORG: NoSemicolons\n:END:\n"
+    (should-not (ecard-org-validate-entry))))
+
+(ert-deftest ecard-org-test-validate-org-with-semicolons ()
+  "Test validate-entry passes for ORG with semicolons."
+  (ecard-org-test-with-temp-org-buffer
+      "* Test\n:PROPERTIES:\n:VCARD: t\n:ORG: Company;Dept\n:END:\n"
+    (should (ecard-org-validate-entry))))
+
+(ert-deftest ecard-org-test-validate-address-home-no-semicolons ()
+  "Test validate-entry warns about ADDRESS_HOME without semicolons."
+  (ecard-org-test-with-temp-org-buffer
+      "* Test\n:PROPERTIES:\n:VCARD: t\n:ADDRESS_HOME: 123 Main St\n:END:\n"
+    (should-not (ecard-org-validate-entry))))
+
+(ert-deftest ecard-org-test-validate-address-home-with-semicolons ()
+  "Test validate-entry passes for ADDRESS_HOME with semicolons."
+  (ecard-org-test-with-temp-org-buffer
+      "* Test\n:PROPERTIES:\n:VCARD: t\n:ADDRESS_HOME: ;;123 Main;City;ST;12345;US\n:END:\n"
+    (should (ecard-org-validate-entry))))
+
+(ert-deftest ecard-org-test-validate-address-work-no-semicolons ()
+  "Test validate-entry warns about ADDRESS_WORK without semicolons."
+  (ecard-org-test-with-temp-org-buffer
+      "* Test\n:PROPERTIES:\n:VCARD: t\n:ADDRESS_WORK: 456 Business Ave\n:END:\n"
+    (should-not (ecard-org-validate-entry))))
+
+(ert-deftest ecard-org-test-validate-minimal-entry ()
+  "Test validate-entry passes for minimal contact."
+  (ecard-org-test-with-temp-org-buffer ecard-org-test-minimal
+    (should (ecard-org-validate-entry))))
+
+;;; 14. get-reverse-mappings tests
+
+(ert-deftest ecard-org-test-reverse-mappings-structure ()
+  "Test reverse mappings returns correct structure."
+  (let ((mappings (ecard-org--get-reverse-mappings)))
+    (should (listp mappings))
+    ;; Should have entries for email, tel, etc.
+    (should (assq 'email mappings))
+    (should (assq 'tel mappings))
+    (should (assq 'org mappings))
+    (should (assq 'uid mappings))))
+
+(ert-deftest ecard-org-test-reverse-mappings-email-entries ()
+  "Test reverse mappings has multiple email entries."
+  (let* ((mappings (ecard-org--get-reverse-mappings))
+         (email-entry (assq 'email mappings)))
+    ;; Should have EMAIL, EMAIL_HOME, EMAIL_WORK
+    (should (>= (length (cdr email-entry)) 3))))
+
+(ert-deftest ecard-org-test-reverse-mappings-tel-entries ()
+  "Test reverse mappings has multiple tel entries."
+  (let* ((mappings (ecard-org--get-reverse-mappings))
+         (tel-entry (assq 'tel mappings)))
+    ;; Should have PHONE, MOBILE, PHONE_WORK, PHONE_HOME, FAX, FAX_WORK
+    (should (>= (length (cdr tel-entry)) 6))))
+
+;;; 15. ecard-to-entry edge cases
+
+(ert-deftest ecard-org-test-ecard-to-entry-unknown-fn ()
+  "Test ecard-to-entry with nil FN uses Unknown."
+  (let ((vc (ecard)))
+    (let ((org-entry (ecard-org-ecard-to-entry vc 1)))
+      (should (string-match-p "^\\* Unknown" org-entry)))))
+
+(ert-deftest ecard-org-test-ecard-to-entry-at-level-2 ()
+  "Test ecard-to-entry at level 2."
+  (let ((vc (ecard-create :fn "Level 2 Test")))
+    (let ((org-entry (ecard-org-ecard-to-entry vc 2)))
+      (should (string-match-p "^\\*\\* Level 2 Test" org-entry)))))
+
+(ert-deftest ecard-org-test-ecard-to-entry-at-level-5 ()
+  "Test ecard-to-entry at deep level."
+  (let ((vc (ecard-create :fn "Deep Level")))
+    (let ((org-entry (ecard-org-ecard-to-entry vc 5)))
+      (should (string-match-p "^\\*\\*\\*\\*\\* Deep Level" org-entry)))))
+
+(ert-deftest ecard-org-test-ecard-to-entry-default-level ()
+  "Test ecard-to-entry uses level 1 by default."
+  (let ((vc (ecard-create :fn "Default Level")))
+    (let ((org-entry (ecard-org-ecard-to-entry vc)))
+      (should (string-match-p "^\\* Default Level" org-entry)))))
+
+(ert-deftest ecard-org-test-ecard-to-entry-no-auto-mark ()
+  "Test ecard-to-entry without auto-mark."
+  (let ((ecard-org-auto-mark-contacts nil)
+        (vc (ecard-create :fn "No Mark")))
+    (let ((org-entry (ecard-org-ecard-to-entry vc 1)))
+      (should-not (string-match-p ":VCARD:" org-entry)))))
+
+(ert-deftest ecard-org-test-ecard-to-entry-with-all-properties ()
+  "Test ecard-to-entry with many properties."
+  (let ((vc (ecard-create :fn "Full Contact"
+                          :email "full@test.com"
+                          :tel "+1-555-0001"
+                          :org '("Corp" "Dept")
+                          :title "Engineer"
+                          :note "A note"
+                          :url "https://example.com")))
+    (let ((org-entry (ecard-org-ecard-to-entry vc 1)))
+      (should (string-match-p "^\\* Full Contact" org-entry))
+      (should (string-match-p ":EMAIL: full@test.com" org-entry))
+      (should (string-match-p ":TITLE: Engineer" org-entry))
+      (should (string-match-p ":NOTE: A note" org-entry))
+      (should (string-match-p ":URL: https://example.com" org-entry))
+      (should (string-match-p ":ORG: Corp;Dept" org-entry)))))
+
+;;; 16. Bidirectional conversion of ANNIVERSARY property
+
+(ert-deftest ecard-org-test-anniversary-property ()
+  "Test ANNIVERSARY property mapping."
+  (ecard-org-test-with-temp-org-buffer
+      "* Test\n:PROPERTIES:\n:VCARD: t\n:ANNIVERSARY: 2000-06-15\n:END:\n"
+    (let ((vc (ecard-org-entry-to-ecard)))
+      (should vc)
+      (should (string= "2000-06-15"
+                       (ecard-get-property-value vc 'anniversary))))))
+
+(ert-deftest ecard-org-test-anniversary-reverse ()
+  "Test ANNIVERSARY reverse mapping."
+  (let ((vc (ecard-create :fn "Test")))
+    (ecard-set-property vc 'anniversary "2000-06-15")
+    (let ((org-entry (ecard-org-ecard-to-entry vc 1)))
+      (should (string-match-p ":ANNIVERSARY: 2000-06-15" org-entry)))))
+
+;;; 17. URL property
+
+(ert-deftest ecard-org-test-url-property ()
+  "Test URL property mapping."
+  (ecard-org-test-with-temp-org-buffer
+      "* Test\n:PROPERTIES:\n:VCARD: t\n:URL: https://example.com\n:END:\n"
+    (let ((vc (ecard-org-entry-to-ecard)))
+      (should vc)
+      (should (string= "https://example.com"
+                       (ecard-get-property-value vc 'url))))))
+
+;;; 18. ROLE property
+
+(ert-deftest ecard-org-test-role-property ()
+  "Test ROLE property mapping."
+  (ecard-org-test-with-temp-org-buffer
+      "* Test\n:PROPERTIES:\n:VCARD: t\n:ROLE: Team Lead\n:END:\n"
+    (let ((vc (ecard-org-entry-to-ecard)))
+      (should vc)
+      (should (string= "Team Lead"
+                       (ecard-get-property-value vc 'role))))))
+
+(ert-deftest ecard-org-test-role-reverse ()
+  "Test ROLE reverse mapping."
+  (let ((vc (ecard-create :fn "Test")))
+    (ecard-set-property vc 'role "Manager")
+    (let ((org-entry (ecard-org-ecard-to-entry vc 1)))
+      (should (string-match-p ":ROLE: Manager" org-entry)))))
+
+;;; 19. BDAY property
+
+(ert-deftest ecard-org-test-bday-property ()
+  "Test BDAY property mapping."
+  (ecard-org-test-with-temp-org-buffer
+      "* Test\n:PROPERTIES:\n:VCARD: t\n:BDAY: 1990-01-15\n:END:\n"
+    (let ((vc (ecard-org-entry-to-ecard)))
+      (should vc)
+      (should (string= "1990-01-15"
+                       (ecard-get-property-value vc 'bday))))))
+
+(ert-deftest ecard-org-test-bday-reverse ()
+  "Test BDAY reverse mapping."
+  (let ((vc (ecard-create :fn "Test")))
+    (ecard-set-property vc 'bday "1990-01-15")
+    (let ((org-entry (ecard-org-ecard-to-entry vc 1)))
+      (should (string-match-p ":BDAY: 1990-01-15" org-entry)))))
+
+;;; 20. FAX_WORK property
+
+(ert-deftest ecard-org-test-fax-work-property ()
+  "Test FAX_WORK property mapping."
+  (ecard-org-test-with-temp-org-buffer ecard-org-test-phone-variants
+    (let* ((vc (ecard-org-entry-to-ecard))
+           (tel-props (ecard-tel vc))
+           (fax-work (cl-find-if (lambda (p)
+                                   (ecard-org-test--property-has-parameter-p
+                                    p "TYPE" "work,fax"))
+                                 tel-props)))
+      (should fax-work)
+      (should (string= "+1-555-0006" (ecard-property-value fax-work))))))
+
+;;; 21. PHONE_HOME property
+
+(ert-deftest ecard-org-test-phone-home-property ()
+  "Test PHONE_HOME property mapping."
+  (ecard-org-test-with-temp-org-buffer ecard-org-test-phone-variants
+    (let* ((vc (ecard-org-entry-to-ecard))
+           (tel-props (ecard-tel vc))
+           (home-phone (cl-find-if (lambda (p)
+                                     (ecard-org-test--property-has-parameter-p
+                                      p "TYPE" "home,voice"))
+                                   tel-props)))
+      (should home-phone)
+      (should (string= "+1-555-0004" (ecard-property-value home-phone))))))
+
+;;; 22. count-contacts edge cases
+
+(ert-deftest ecard-org-test-count-contacts-single ()
+  "Test counting a single contact."
+  (ecard-org-test-with-temp-org-buffer ecard-org-test-simple-entry
+    (should (= 1 (ecard-org-count-contacts)))))
+
+(ert-deftest ecard-org-test-count-contacts-nested ()
+  "Test counting nested contacts."
+  (ecard-org-test-with-temp-org-buffer ecard-org-test-nested-contacts
+    (should (= 3 (ecard-org-count-contacts)))))
+
 (provide 'ecard-org-test)
 ;;; ecard-org-test.el ends here
