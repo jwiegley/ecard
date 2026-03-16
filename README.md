@@ -1,240 +1,152 @@
-# Emacs ecard
+# ecard
 
-A complete vCard 4.0 (RFC 6350) parser and serializer for Emacs, providing a clean API for programmatic contact management.
+I've been managing contacts in Emacs for years now -- org-contacts, BBDB,
+various custom hacks -- and kept running into the same wall: there's no proper
+vCard 4.0 library for Emacs. Every tool I found was either stuck on vCard 3.0,
+couldn't round-trip without mangling data, or handled UTF-8 badly. So I wrote
+one.
 
-## Features
+ecard is a complete vCard 4.0 (RFC 6350) parser and serializer for Emacs. It
+uses `cl-defstruct` for the data model, handles line folding at 75 *octets* (not
+characters, which matters for multi-byte text), and can parse and serialize
+vCards with full fidelity. No external dependencies -- just Emacs 30.1+.
 
-- **Full vCard 4.0 Support** - Complete implementation of RFC 6350
-- **Pure Elisp** - No external dependencies required
-- **EIEIO-based Design** - Clean object-oriented API
-- **Bidirectional** - Parse and serialize vCards with full fidelity
-- **UTF-8 Support** - Proper handling of international characters
-- **Extended Properties** - Support for X-* custom properties
+## Quick start
 
-## Why Use emacs-ecard?
-
-- **Email Integration** - Parse vCard attachments from emails directly in Emacs
-- **Contact Management** - Build custom contact management tools
-- **Data Migration** - Convert between vCard and other formats (org-contacts, BBDB, CSV)
-- **Automation** - Bulk operations on contact databases
-- **Integration** - Add vCard support to existing Emacs packages
-
-## Installation
-
-### Manual Installation
-
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/emacs-ecard.git
-```
-
-2. Add to your Emacs configuration:
-```elisp
-(add-to-list 'load-path "/path/to/emacs-ecard")
-(require 'ecard)
-```
-
-### Using use-package
-
-```elisp
-(use-package ecard
-  :load-path "/path/to/emacs-ecard")
-```
-
-## Quick Start
-
-### Parse a vCard from File
+Parse a vCard from a file:
 
 ```elisp
 (let ((contact (ecard-parse-file "~/contacts/john.vcf")))
-  ;; Get the formatted name
-  (ecard-get-property-value contact 'fn)
-  ;; => "John Doe"
-
-  ;; Get all email addresses
-  (ecard-get-property-values contact 'email)
-  ;; => ("john@example.com" "john.doe@work.com")
-
-  ;; Get first phone number
-  (ecard-get-property-value contact 'tel)
-  ;; => "+1-555-1234")
+  (ecard-get-property-value contact 'fn)    ;; => "John Doe"
+  (ecard-get-property-values contact 'email) ;; => ("john@example.com" "john@work.com")
+  (ecard-get-property-value contact 'tel))   ;; => "+1-555-1234"
 ```
 
-### Create a New vCard
+Create a new vCard:
 
 ```elisp
 (let ((contact (ecard-create
                 :fn "Jane Smith"
                 :n "Smith;Jane;Marie;Dr.;PhD"
                 :email '("jane@example.com" "j.smith@university.edu")
-                :tel '("+1-555-5678" "+1-555-8765")
+                :tel '("+1-555-5678")
                 :org "Acme Corporation")))
-
-  ;; Save to file
   (ecard-write-file contact "~/contacts/jane.vcf"))
 ```
 
-### Parse from String
+Parse from a string:
 
 ```elisp
-(let* ((ecard-text "BEGIN:VCARD
-VERSION:4.0
-FN:John Doe
-EMAIL:john@example.com
-END:VCARD")
-       (contact (ecard-parse ecard-text)))
-  (ecard-get-property-value contact 'email))
-;; => "john@example.com"
+(ecard-parse "BEGIN:VCARD\nVERSION:4.0\nFN:John Doe\nEMAIL:john@example.com\nEND:VCARD")
 ```
 
-### Modify Properties
+## Installation
+
+Clone the repo and add it to your load-path:
 
 ```elisp
-(let ((contact (ecard-parse-file "~/contacts/john.vcf")))
-  ;; Replace all emails
-  (ecard-set-property contact 'email "newemail@example.com")
-
-  ;; Add an additional phone number
-  (ecard-add-property contact 'tel "+1-555-9999")
-
-  ;; Update organization
-  (ecard-set-property contact 'org "New Company Inc.")
-
-  ;; Save changes
-  (ecard-write-file contact "~/contacts/john-updated.vcf"))
+(add-to-list 'load-path "/path/to/ecard")
+(require 'ecard)
 ```
 
-## API Reference
-
-### Parsing Functions
-
-- `(ecard-parse STRING)` - Parse vCard string into ecard object
-- `(ecard-parse-file FILENAME)` - Parse vCard from file
-- `(ecard-parse-buffer)` - Parse current buffer as vCard
-
-### Creation and Serialization
-
-- `(ecard-create &rest PROPERTIES)` - Create new ecard with properties
-- `(ecard-serialize VCARD)` - Convert ecard object to RFC 6350 string
-- `(ecard-write-file VCARD FILENAME)` - Write ecard to file
-
-### Property Access
-
-- `(ecard-get-property-value VCARD PROPERTY)` - Get first value of property
-- `(ecard-get-property-values VCARD PROPERTY)` - Get all values of property
-- `(ecard-set-property VCARD PROPERTY VALUE)` - Replace property value(s)
-- `(ecard-add-property VCARD PROPERTY VALUE)` - Add additional property value
-
-### Properties Supported
-
-All standard vCard 4.0 properties are supported:
-
-- **Identification**: `fn`, `n`, `nickname`, `photo`, `bday`, `anniversary`, `gender`
-- **Contact**: `tel`, `email`, `impp`, `lang`
-- **Address**: `adr`
-- **Organization**: `title`, `role`, `logo`, `org`, `member`, `related`
-- **Web**: `url`, `key`
-- **Calendar**: `fburl`, `caladruri`, `caluri`
-- **Metadata**: `version`, `prodid`, `rev`, `sound`, `uid`, `kind`
-- **Notes**: `note`, `categories`
-- **Time Zone**: `tz`
-- **Geographic**: `geo`
-- **Extended**: Any `X-*` properties
-
-## Examples
-
-### Filter Contacts by Email Domain
+Or with `use-package`:
 
 ```elisp
-(defun contacts-from-domain (vcf-files domain)
-  "Return contacts with email addresses from DOMAIN."
-  (seq-filter
-   (lambda (contact)
-     (seq-some (lambda (email)
-                 (string-match-p (concat "@" domain "$") email))
-               (ecard-get-property-values contact 'email)))
-   (mapcar #'ecard-parse-file vcf-files)))
+(use-package ecard
+  :load-path "/path/to/ecard")
 ```
 
-### Export to CSV
+## What's included
 
-```elisp
-(defun ecard-to-csv (ecard)
-  "Convert vCard to CSV row."
-  (mapconcat #'identity
-             (list (or (ecard-get-property-value ecard 'fn) "")
-                   (or (ecard-get-property-value ecard 'email) "")
-                   (or (ecard-get-property-value ecard 'tel) "")
-                   (or (ecard-get-property-value ecard 'org) ""))
-             ","))
+The core library (`ecard.el`) handles parsing, serialization, and the data
+model. On top of that:
+
+- **ecard-compat** -- vCard 3.0 to 4.0 conversion, so you can import older
+  contact files
+- **ecard-carddav** -- CardDAV protocol support (RFC 6352) for syncing with
+  remote servers
+- **ecard-org** -- bidirectional conversion between vCards and org-contacts
+- **ecard-display** -- rendering vCards in Emacs buffers
+- **ecard-sync** -- two-way sync engine with conflict resolution
+- **ecard-tools** -- bulk operations, filtering, merging, deduplication
+- **ecard-widget** -- Emacs widget interface for editing contacts
+
+## API
+
+### Parsing and serialization
+
+- `(ecard-parse STRING)` -- parse a vCard string into an ecard struct
+- `(ecard-parse-file FILENAME)` -- parse a .vcf file
+- `(ecard-parse-buffer)` -- parse the current buffer
+- `(ecard-create &rest PROPERTIES)` -- create a new ecard
+- `(ecard-serialize VCARD)` -- convert an ecard to an RFC 6350 string
+- `(ecard-write-file VCARD FILENAME)` -- write to a .vcf file
+
+### Property access
+
+- `(ecard-get-property-value VCARD PROP)` -- first value of a property
+- `(ecard-get-property-values VCARD PROP)` -- all values of a property
+- `(ecard-set-property VCARD PROP VALUE)` -- replace a property
+- `(ecard-add-property VCARD PROP VALUE)` -- append a property value
+
+### Supported properties
+
+All standard vCard 4.0 properties: `fn`, `n`, `nickname`, `photo`, `bday`,
+`anniversary`, `gender`, `tel`, `email`, `impp`, `lang`, `adr`, `title`,
+`role`, `logo`, `org`, `member`, `related`, `url`, `key`, `fburl`,
+`caladruri`, `caluri`, `version`, `prodid`, `rev`, `sound`, `uid`, `kind`,
+`note`, `categories`, `tz`, `geo`, plus any `X-*` extended properties.
+
+## Development
+
+The project uses Nix for reproducible builds and a full development shell:
+
+```bash
+nix develop          # enter dev shell with Emacs, package-lint, lefthook
+nix build            # byte-compile the package (warnings are errors)
+nix flake check      # run all checks: tests, lint, format, coverage, perf, fuzz
 ```
 
-### Bulk Update Organization
+Or run individual checks directly:
 
-```elisp
-(defun update-organization (directory old-name new-name)
-  "Update organization name in all vCards in DIRECTORY."
-  (dolist (file (directory-files directory t "\\.vcf$"))
-    (let ((contact (ecard-parse-file file)))
-      (when (equal (ecard-get-property-value contact 'org) old-name)
-        (ecard-set-property contact 'org new-name)
-        (ecard-write-file contact file)))))
+```bash
+./scripts/test.sh           # ERT test suite
+./scripts/byte-compile.sh   # byte-compile with warnings-as-errors
+./scripts/lint.sh           # package-lint + checkdoc
+./scripts/check-format.sh   # indentation check
+./scripts/coverage.sh       # test coverage (60% minimum)
+./scripts/perf-check.sh     # performance benchmark regression check
+./scripts/fuzz-test.sh      # fuzz the parser with random inputs
 ```
 
-## Current Limitations
+Pre-commit hooks run all checks in parallel via [lefthook](https://github.com/evilmartians/lefthook):
 
-- **vCard 4.0 Only** - No support for VERSION 3.0 vCards
-- **Single vCard Parsing** - Cannot parse multiple vCards in one file
-- **No Value Validation** - Dates, URIs, etc. are not validated
-- **No MIME Handling** - PHOTO/LOGO/SOUND properties store raw strings
-- **Limited High-Level API** - No convenience methods like `ecard-add-email` yet
+```bash
+lefthook install     # set up git hooks
+```
+
+To set a performance baseline (for the 5% regression check):
+
+```bash
+./scripts/update-perf-baseline.sh
+```
+
+## Current limitations
+
+- **vCard 4.0 only** -- the parser rejects VERSION:3.0 (use `ecard-compat` to
+  convert older files first)
+- **Single vCard per parse call** -- use `ecard-compat-parse-multiple` for files
+  with multiple vCards
+- **No value type validation** -- dates, URIs, etc. aren't validated against
+  their expected formats
+- **No MIME handling** -- PHOTO/LOGO/SOUND are stored as strings, not decoded
 
 ## Testing
 
-The ecard project has **comprehensive test coverage** with **395+ tests** covering:
-- RFC 6350 vCard 4.0 compliance (113 tests)
-- CardDAV protocol (RFC 6352) (52 tests)
-- org-contacts integration (89 tests)
-- BBDB compatibility and migration (67 tests)
-- Display, tools, and utilities (74 tests)
-
-### Quick Start
-
-```bash
-# Using Eask (recommended)
-eask install-deps
-eask run script test              # Run all tests
-eask run script test-quick        # Quick smoke tests
-eask run script test-compliance   # RFC compliance tests
-
-# Using Emacs directly
-emacs -batch -L . -l ecard.el -l ecard-test.el \
-  -f ert-run-tests-batch-and-exit
-```
-
-### Test Infrastructure
-
-The project includes:
-- **Custom test framework** with assertion macros and test data generators
-- **RFC compliance testing** with automated requirement tracking
-- **Performance benchmarks** and security validation
-- **CI/CD integration** with GitHub Actions
-- **Pre-commit hooks** for quick validation
-
-## Contributing
-
-Contributions are welcome! Please ensure:
-- All tests pass
-- New features include tests
-- Code follows existing style
-- Changes are documented
+The test suite has 1290+ ERT tests covering RFC 6350 compliance, CardDAV
+protocol, org-contacts integration, BBDB compatibility, display rendering, and
+more. Tests run in CI via GitHub Actions on every push and pull request.
 
 ## License
 
-GPL3
-
-## See Also
-
-- [RFC 6350](https://tools.ietf.org/html/rfc6350) - vCard Format Specification
-- [org-contacts](https://github.com/girzel/org-contacts) - Org-mode contact management
-- [BBDB](https://www.emacswiki.org/emacs/BbdbMode) - Big Brother Database
+BSD 3-Clause. See [LICENSE.md](LICENSE.md).
