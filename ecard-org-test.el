@@ -250,16 +250,16 @@ Some content here.
 (ert-deftest ecard-org-test-simple-org-to-ecard ()
   "Test basic Org entry to vCard conversion."
   (ecard-org-test-with-temp-org-buffer ecard-org-test-simple-entry
-    (let ((vc (ecard-org-entry-to-ecard)))
-      (should vc)
-      (should (string= "John Doe" (ecard-get-property-value vc 'fn)))
-      (should (string= "john@example.com" (ecard-get-property-value vc 'email)))
-      ;; Check tel property with TYPE=cell parameter
-      (let ((tel-props (ecard-tel vc)))
-        (should (= (length tel-props) 1))
-        (should (string= "+1-555-1234" (ecard-property-value (car tel-props))))
-        (should (ecard-org-test--property-has-parameter-p
-                 (car tel-props) "TYPE" "cell"))))))
+                                       (let ((vc (ecard-org-entry-to-ecard)))
+                                         (should vc)
+                                         (should (string= "John Doe" (ecard-get-property-value vc 'fn)))
+                                         (should (string= "john@example.com" (ecard-get-property-value vc 'email)))
+                                         ;; Check tel property with TYPE=cell parameter
+                                         (let ((tel-props (ecard-tel vc)))
+                                           (should (= (length tel-props) 1))
+                                           (should (string= "+1-555-1234" (ecard-property-value (car tel-props))))
+                                           (should (ecard-org-test--property-has-parameter-p
+                                                    (car tel-props) "TYPE" "cell"))))))
 
 (ert-deftest ecard-org-test-simple-ecard-to-org ()
   "Test vCard object to Org entry conversion."
@@ -278,80 +278,80 @@ Some content here.
 (ert-deftest ecard-org-test-round-trip-simple ()
   "Test Org → vCard → Org round-trip preserves data."
   (ecard-org-test-with-temp-org-buffer ecard-org-test-simple-entry
-    (let* ((vc (ecard-org-entry-to-ecard))
-           (org-entry (ecard-org-ecard-to-entry vc 1)))
-      ;; Parse the generated entry
-      (erase-buffer)
-      (insert org-entry)
-      (goto-char (point-min))
-      (let ((vc2 (ecard-org-entry-to-ecard)))
-        (should vc2)
-        (should (string= (ecard-get-property-value vc 'fn)
-                        (ecard-get-property-value vc2 'fn)))
-        (should (string= (ecard-get-property-value vc 'email)
-                        (ecard-get-property-value vc2 'email)))))))
+                                       (let* ((vc (ecard-org-entry-to-ecard))
+                                              (org-entry (ecard-org-ecard-to-entry vc 1)))
+                                         ;; Parse the generated entry
+                                         (erase-buffer)
+                                         (insert org-entry)
+                                         (goto-char (point-min))
+                                         (let ((vc2 (ecard-org-entry-to-ecard)))
+                                           (should vc2)
+                                           (should (string= (ecard-get-property-value vc 'fn)
+                                                            (ecard-get-property-value vc2 'fn)))
+                                           (should (string= (ecard-get-property-value vc 'email)
+                                                            (ecard-get-property-value vc2 'email)))))))
 
 (ert-deftest ecard-org-test-round-trip-complex ()
   "Test complex entry round-trip preserves key properties."
   (ecard-org-test-with-temp-org-buffer ecard-org-test-complex-entry
-    (let* ((vc1 (ecard-org-entry-to-ecard))
-           (org-entry (ecard-org-ecard-to-entry vc1 1)))
-      (erase-buffer)
-      (insert org-entry)
-      (goto-char (point-min))
-      (let ((vc2 (ecard-org-entry-to-ecard)))
-        (should vc2)
-        (should (string= (ecard-get-property-value vc1 'fn)
-                        (ecard-get-property-value vc2 'fn)))
-        (should (equal (ecard-get-property-value vc1 'org)
-                      (ecard-get-property-value vc2 'org)))
-        (should (string= (ecard-get-property-value vc1 'title)
-                        (ecard-get-property-value vc2 'title)))
-        ;; NOTE: Email count won't match because reverse mapping maps all emails
-        ;; with different TYPE params to generic EMAIL (nil params matches all)
-        ;; Just verify we have at least one email
-        (should (>= (length (ecard-get-property-values vc2 'email)) 1))))))
+                                       (let* ((vc1 (ecard-org-entry-to-ecard))
+                                              (org-entry (ecard-org-ecard-to-entry vc1 1)))
+                                         (erase-buffer)
+                                         (insert org-entry)
+                                         (goto-char (point-min))
+                                         (let ((vc2 (ecard-org-entry-to-ecard)))
+                                           (should vc2)
+                                           (should (string= (ecard-get-property-value vc1 'fn)
+                                                            (ecard-get-property-value vc2 'fn)))
+                                           (should (equal (ecard-get-property-value vc1 'org)
+                                                          (ecard-get-property-value vc2 'org)))
+                                           (should (string= (ecard-get-property-value vc1 'title)
+                                                            (ecard-get-property-value vc2 'title)))
+                                           ;; NOTE: Email count won't match because reverse mapping maps all emails
+                                           ;; with different TYPE params to generic EMAIL (nil params matches all)
+                                           ;; Just verify we have at least one email
+                                           (should (>= (length (ecard-get-property-values vc2 'email)) 1))))))
 
 (ert-deftest ecard-org-test-entry-with-multiple-properties ()
   "Test entry with multiple instances of same property type."
   (ecard-org-test-with-temp-org-buffer ecard-org-test-complex-entry
-    (let ((vc (ecard-org-entry-to-ecard)))
-      (should vc)
-      ;; Should have 3 email addresses
-      (let ((emails (ecard-get-property-values vc 'email)))
-        (should (= (length emails) 3))
-        (should (member "jane@example.com" emails))
-        (should (member "jane.smith@company.com" emails))
-        (should (member "jane@home.com" emails))))))
+                                       (let ((vc (ecard-org-entry-to-ecard)))
+                                         (should vc)
+                                         ;; Should have 3 email addresses
+                                         (let ((emails (ecard-get-property-values vc 'email)))
+                                           (should (= (length emails) 3))
+                                           (should (member "jane@example.com" emails))
+                                           (should (member "jane.smith@company.com" emails))
+                                           (should (member "jane@home.com" emails))))))
 
 (ert-deftest ecard-org-test-entry-no-properties ()
   "Test entry with only heading (no properties)."
   (ecard-org-test-with-temp-org-buffer ecard-org-test-minimal
-    (let ((vc (ecard-org-entry-to-ecard)))
-      (should vc)
-      (should (string= "Minimal Contact" (ecard-get-property-value vc 'fn)))
-      ;; Should only have FN property
-      (should-not (ecard-email vc))
-      (should-not (ecard-tel vc)))))
+                                       (let ((vc (ecard-org-entry-to-ecard)))
+                                         (should vc)
+                                         (should (string= "Minimal Contact" (ecard-get-property-value vc 'fn)))
+                                         ;; Should only have FN property
+                                         (should-not (ecard-email vc))
+                                         (should-not (ecard-tel vc)))))
 
 (ert-deftest ecard-org-test-entry-without-ecard-marker-required ()
   "Test entry without VCARD marker when require-ecard-property is t."
   (let ((ecard-org-require-ecard-property t))
     (ecard-org-test-with-temp-org-buffer ecard-org-test-no-ecard-marker
-      (let ((vc (ecard-org-entry-to-ecard)))
-        ;; Should return nil because no VCARD property
-        (should-not vc)))))
+                                         (let ((vc (ecard-org-entry-to-ecard)))
+                                           ;; Should return nil because no VCARD property
+                                           (should-not vc)))))
 
 (ert-deftest ecard-org-test-entry-without-ecard-marker-auto-detect ()
   "Test entry without VCARD marker when auto-detect is enabled."
   (let ((ecard-org-require-ecard-property nil))
     (ecard-org-test-with-temp-org-buffer ecard-org-test-no-ecard-marker
-      (let ((vc (ecard-org-entry-to-ecard)))
-        ;; Should auto-detect because it has EMAIL property
-        (should vc)
-        (should (string= "Alice Auto" (ecard-get-property-value vc 'fn)))
-        (should (string= "alice.auto@example.com"
-                        (ecard-get-property-value vc 'email)))))))
+                                         (let ((vc (ecard-org-entry-to-ecard)))
+                                           ;; Should auto-detect because it has EMAIL property
+                                           (should vc)
+                                           (should (string= "Alice Auto" (ecard-get-property-value vc 'fn)))
+                                           (should (string= "alice.auto@example.com"
+                                                            (ecard-get-property-value vc 'email)))))))
 
 ;;; 2. Property Mapping Tests
 
@@ -359,14 +359,14 @@ Some content here.
   "Test ID property mapping to UID.
 Org ID property contains plain UUID, vCard UID gets urn:uuid: prefix."
   (ecard-org-test-with-temp-org-buffer
-      "* Test\n:PROPERTIES:\n:VCARD: t\n:ID: test-12345\n:END:\n"
-    (let ((vc (ecard-org-entry-to-ecard)))
-      (should vc)
-      ;; vCard UID should have urn:uuid: prefix added
-      (should (string= "urn:uuid:test-12345" (ecard-get-property-value vc 'uid)))
-      ;; UID should have no parameters
-      (let ((uid-prop (car (ecard-uid vc))))
-        (should-not (ecard-property-parameters uid-prop))))))
+   "* Test\n:PROPERTIES:\n:VCARD: t\n:ID: test-12345\n:END:\n"
+   (let ((vc (ecard-org-entry-to-ecard)))
+     (should vc)
+     ;; vCard UID should have urn:uuid: prefix added
+     (should (string= "urn:uuid:test-12345" (ecard-get-property-value vc 'uid)))
+     ;; UID should have no parameters
+     (let ((uid-prop (car (ecard-uid vc))))
+       (should-not (ecard-property-parameters uid-prop))))))
 
 (ert-deftest ecard-org-test-uid-reverse-mapping ()
   "Test reverse mapping from vCard UID to Org ID property.
@@ -380,271 +380,271 @@ vCard UID with urn:uuid: prefix should be stripped to plain UUID in Org ID."
   "Test UID round-trip conversion (Org → vCard → Org).
 Org ID uses plain UUID, vCard UID has urn:uuid: prefix, round-trip preserves both formats."
   (ecard-org-test-with-temp-org-buffer
-      "* Contact\n:PROPERTIES:\n:VCARD: t\n:ID: roundtrip-abc123\n:END:\n"
-    (let* ((vc1 (ecard-org-entry-to-ecard))
-           (uid1 (ecard-get-property-value vc1 'uid)))
-      ;; vCard UID should have urn:uuid: prefix
-      (should (string= "urn:uuid:roundtrip-abc123" uid1))
-      ;; Convert back to Org
-      (let ((org-entry (ecard-org-ecard-to-entry vc1 1)))
-        ;; Org ID should have plain UUID (prefix stripped)
-        (should (string-match-p ":ID: roundtrip-abc123" org-entry))
-        ;; Parse the org entry to vCard again and verify UID preserved
-        (ecard-org-test-with-temp-org-buffer org-entry
-          (let* ((vc2 (ecard-org-entry-to-ecard))
-                 (uid2 (ecard-get-property-value vc2 'uid)))
-            ;; vCard UID should still have urn:uuid: prefix after round-trip
-            (should (string= uid1 uid2))))))))
+   "* Contact\n:PROPERTIES:\n:VCARD: t\n:ID: roundtrip-abc123\n:END:\n"
+   (let* ((vc1 (ecard-org-entry-to-ecard))
+          (uid1 (ecard-get-property-value vc1 'uid)))
+     ;; vCard UID should have urn:uuid: prefix
+     (should (string= "urn:uuid:roundtrip-abc123" uid1))
+     ;; Convert back to Org
+     (let ((org-entry (ecard-org-ecard-to-entry vc1 1)))
+       ;; Org ID should have plain UUID (prefix stripped)
+       (should (string-match-p ":ID: roundtrip-abc123" org-entry))
+       ;; Parse the org entry to vCard again and verify UID preserved
+       (ecard-org-test-with-temp-org-buffer org-entry
+                                            (let* ((vc2 (ecard-org-entry-to-ecard))
+                                                   (uid2 (ecard-get-property-value vc2 'uid)))
+                                              ;; vCard UID should still have urn:uuid: prefix after round-trip
+                                              (should (string= uid1 uid2))))))))
 
 (ert-deftest ecard-org-test-simple-email-property ()
   "Test simple EMAIL property mapping."
   (ecard-org-test-with-temp-org-buffer
-      "* Test\n:PROPERTIES:\n:VCARD: t\n:EMAIL: test@example.com\n:END:\n"
-    (let ((vc (ecard-org-entry-to-ecard)))
-      (should vc)
-      (should (string= "test@example.com" (ecard-get-property-value vc 'email)))
-      ;; Simple EMAIL should have no parameters
-      (let ((email-prop (car (ecard-email vc))))
-        (should-not (ecard-property-parameters email-prop))))))
+   "* Test\n:PROPERTIES:\n:VCARD: t\n:EMAIL: test@example.com\n:END:\n"
+   (let ((vc (ecard-org-entry-to-ecard)))
+     (should vc)
+     (should (string= "test@example.com" (ecard-get-property-value vc 'email)))
+     ;; Simple EMAIL should have no parameters
+     (let ((email-prop (car (ecard-email vc))))
+       (should-not (ecard-property-parameters email-prop))))))
 
 (ert-deftest ecard-org-test-parameterized-email-home ()
   "Test EMAIL_HOME property with TYPE parameter."
   (ecard-org-test-with-temp-org-buffer
-      "* Test\n:PROPERTIES:\n:VCARD: t\n:EMAIL_HOME: home@example.com\n:END:\n"
-    (let ((vc (ecard-org-entry-to-ecard)))
-      (should vc)
-      (let ((email-prop (car (ecard-email vc))))
-        (should (string= "home@example.com" (ecard-property-value email-prop)))
-        (should (ecard-org-test--property-has-parameter-p
-                 email-prop "TYPE" "home"))))))
+   "* Test\n:PROPERTIES:\n:VCARD: t\n:EMAIL_HOME: home@example.com\n:END:\n"
+   (let ((vc (ecard-org-entry-to-ecard)))
+     (should vc)
+     (let ((email-prop (car (ecard-email vc))))
+       (should (string= "home@example.com" (ecard-property-value email-prop)))
+       (should (ecard-org-test--property-has-parameter-p
+                email-prop "TYPE" "home"))))))
 
 (ert-deftest ecard-org-test-parameterized-email-work ()
   "Test EMAIL_WORK property with TYPE parameter."
   (ecard-org-test-with-temp-org-buffer
-      "* Test\n:PROPERTIES:\n:VCARD: t\n:EMAIL_WORK: work@example.com\n:END:\n"
-    (let ((vc (ecard-org-entry-to-ecard)))
-      (should vc)
-      (let ((email-prop (car (ecard-email vc))))
-        (should (string= "work@example.com" (ecard-property-value email-prop)))
-        (should (ecard-org-test--property-has-parameter-p
-                 email-prop "TYPE" "work"))))))
+   "* Test\n:PROPERTIES:\n:VCARD: t\n:EMAIL_WORK: work@example.com\n:END:\n"
+   (let ((vc (ecard-org-entry-to-ecard)))
+     (should vc)
+     (let ((email-prop (car (ecard-email vc))))
+       (should (string= "work@example.com" (ecard-property-value email-prop)))
+       (should (ecard-org-test--property-has-parameter-p
+                email-prop "TYPE" "work"))))))
 
 (ert-deftest ecard-org-test-multiple-email-instances ()
   "Test multiple email addresses with different parameters."
   (ecard-org-test-with-temp-org-buffer ecard-org-test-complex-entry
-    (let* ((vc (ecard-org-entry-to-ecard))
-           (email-props (ecard-email vc)))
-      (should (= (length email-props) 3))
-      ;; Check we have all three types
-      (should (cl-some (lambda (p) (string= (ecard-property-value p) "jane@example.com"))
-                       email-props))
-      (should (cl-some (lambda (p) (and (string= (ecard-property-value p) "jane.smith@company.com")
-                                        (ecard-org-test--property-has-parameter-p p "TYPE" "work")))
-                       email-props))
-      (should (cl-some (lambda (p) (and (string= (ecard-property-value p) "jane@home.com")
-                                        (ecard-org-test--property-has-parameter-p p "TYPE" "home")))
-                       email-props)))))
+                                       (let* ((vc (ecard-org-entry-to-ecard))
+                                              (email-props (ecard-email vc)))
+                                         (should (= (length email-props) 3))
+                                         ;; Check we have all three types
+                                         (should (cl-some (lambda (p) (string= (ecard-property-value p) "jane@example.com"))
+                                                          email-props))
+                                         (should (cl-some (lambda (p) (and (string= (ecard-property-value p) "jane.smith@company.com")
+                                                                           (ecard-org-test--property-has-parameter-p p "TYPE" "work")))
+                                                          email-props))
+                                         (should (cl-some (lambda (p) (and (string= (ecard-property-value p) "jane@home.com")
+                                                                           (ecard-org-test--property-has-parameter-p p "TYPE" "home")))
+                                                          email-props)))))
 
 (ert-deftest ecard-org-test-structured-org-property ()
   "Test structured ORG property conversion (semicolon-separated)."
   (ecard-org-test-with-temp-org-buffer
-      "* Test\n:PROPERTIES:\n:VCARD: t\n:ORG: Acme Inc;Engineering;Software Dev\n:END:\n"
-    (let ((vc (ecard-org-entry-to-ecard)))
-      (should vc)
-      (should (equal '("Acme Inc" "Engineering" "Software Dev")
-                     (ecard-get-property-value vc 'org))))))
+   "* Test\n:PROPERTIES:\n:VCARD: t\n:ORG: Acme Inc;Engineering;Software Dev\n:END:\n"
+   (let ((vc (ecard-org-entry-to-ecard)))
+     (should vc)
+     (should (equal '("Acme Inc" "Engineering" "Software Dev")
+                    (ecard-get-property-value vc 'org))))))
 
 (ert-deftest ecard-org-test-structured-n-property ()
   "Test structured N property conversion."
   (ecard-org-test-with-temp-org-buffer
-      "* Test\n:PROPERTIES:\n:VCARD: t\n:N: Doe;John;Q;Mr.;Jr.\n:END:\n"
-    (let ((vc (ecard-org-entry-to-ecard)))
-      (should vc)
-      (should (equal '("Doe" "John" "Q" "Mr." "Jr.")
-                     (ecard-get-property-value vc 'n))))))
+   "* Test\n:PROPERTIES:\n:VCARD: t\n:N: Doe;John;Q;Mr.;Jr.\n:END:\n"
+   (let ((vc (ecard-org-entry-to-ecard)))
+     (should vc)
+     (should (equal '("Doe" "John" "Q" "Mr." "Jr.")
+                    (ecard-get-property-value vc 'n))))))
 
 (ert-deftest ecard-org-test-text-list-categories ()
   "Test CATEGORIES text-list conversion (comma-separated)."
   (ecard-org-test-with-temp-org-buffer
-      "* Test\n:PROPERTIES:\n:VCARD: t\n:CATEGORIES: colleague,friend,tech\n:END:\n"
-    (let ((vc (ecard-org-entry-to-ecard)))
-      (should vc)
-      (should (equal '("colleague" "friend" "tech")
-                     (ecard-get-property-value vc 'categories))))))
+   "* Test\n:PROPERTIES:\n:VCARD: t\n:CATEGORIES: colleague,friend,tech\n:END:\n"
+   (let ((vc (ecard-org-entry-to-ecard)))
+     (should vc)
+     (should (equal '("colleague" "friend" "tech")
+                    (ecard-get-property-value vc 'categories))))))
 
 (ert-deftest ecard-org-test-text-list-nickname ()
   "Test NICKNAME text-list conversion."
   (ecard-org-test-with-temp-org-buffer
-      "* Test\n:PROPERTIES:\n:VCARD: t\n:NICKNAME: Johnny,J-Man,JD\n:END:\n"
-    (let ((vc (ecard-org-entry-to-ecard)))
-      (should vc)
-      (should (equal '("Johnny" "J-Man" "JD")
-                     (ecard-get-property-value vc 'nickname))))))
+   "* Test\n:PROPERTIES:\n:VCARD: t\n:NICKNAME: Johnny,J-Man,JD\n:END:\n"
+   (let ((vc (ecard-org-entry-to-ecard)))
+     (should vc)
+     (should (equal '("Johnny" "J-Man" "JD")
+                    (ecard-get-property-value vc 'nickname))))))
 
 (ert-deftest ecard-org-test-address-home ()
   "Test ADDRESS_HOME structured property."
   (ecard-org-test-with-temp-org-buffer ecard-org-test-structured-address
-    (let* ((vc (ecard-org-entry-to-ecard))
-           (adr-props (ecard-adr vc))
-           (home-adr (cl-find-if (lambda (p)
-                                   (ecard-org-test--property-has-parameter-p p "TYPE" "home"))
-                                 adr-props)))
-      (should home-adr)
-      ;; The parser splits on semicolons - empty components are dropped by split-string
-      (should (equal '("123 Main St" "Anytown" "CA" "12345" "USA")
-                     (ecard-property-value home-adr))))))
+                                       (let* ((vc (ecard-org-entry-to-ecard))
+                                              (adr-props (ecard-adr vc))
+                                              (home-adr (cl-find-if (lambda (p)
+                                                                      (ecard-org-test--property-has-parameter-p p "TYPE" "home"))
+                                                                    adr-props)))
+                                         (should home-adr)
+                                         ;; The parser splits on semicolons - empty components are dropped by split-string
+                                         (should (equal '("123 Main St" "Anytown" "CA" "12345" "USA")
+                                                        (ecard-property-value home-adr))))))
 
 (ert-deftest ecard-org-test-address-work ()
   "Test ADDRESS_WORK structured property."
   (ecard-org-test-with-temp-org-buffer ecard-org-test-structured-address
-    (let* ((vc (ecard-org-entry-to-ecard))
-           (adr-props (ecard-adr vc))
-           (work-adr (cl-find-if (lambda (p)
-                                   (ecard-org-test--property-has-parameter-p p "TYPE" "work"))
-                                 adr-props)))
-      (should work-adr)
-      (should (equal '("Suite 100" "Acme Corp" "456 Business Ave" "Metro City" "NY" "54321" "USA")
-                     (ecard-property-value work-adr))))))
+                                       (let* ((vc (ecard-org-entry-to-ecard))
+                                              (adr-props (ecard-adr vc))
+                                              (work-adr (cl-find-if (lambda (p)
+                                                                      (ecard-org-test--property-has-parameter-p p "TYPE" "work"))
+                                                                    adr-props)))
+                                         (should work-adr)
+                                         (should (equal '("Suite 100" "Acme Corp" "456 Business Ave" "Metro City" "NY" "54321" "USA")
+                                                        (ecard-property-value work-adr))))))
 
 (ert-deftest ecard-org-test-phone-mobile ()
   "Test MOBILE phone mapping."
   (ecard-org-test-with-temp-org-buffer ecard-org-test-phone-variants
-    (let* ((vc (ecard-org-entry-to-ecard))
-           (tel-props (ecard-tel vc))
-           (mobile (cl-find-if (lambda (p)
-                                 (ecard-org-test--property-has-parameter-p p "TYPE" "cell"))
-                               tel-props)))
-      (should mobile)
-      (should (string= "+1-555-0002" (ecard-property-value mobile))))))
+                                       (let* ((vc (ecard-org-entry-to-ecard))
+                                              (tel-props (ecard-tel vc))
+                                              (mobile (cl-find-if (lambda (p)
+                                                                    (ecard-org-test--property-has-parameter-p p "TYPE" "cell"))
+                                                                  tel-props)))
+                                         (should mobile)
+                                         (should (string= "+1-555-0002" (ecard-property-value mobile))))))
 
 (ert-deftest ecard-org-test-phone-work ()
   "Test PHONE_WORK mapping."
   (ecard-org-test-with-temp-org-buffer ecard-org-test-phone-variants
-    (let* ((vc (ecard-org-entry-to-ecard))
-           (tel-props (ecard-tel vc))
-           (work-phone (cl-find-if (lambda (p)
-                                     (ecard-org-test--property-has-parameter-p p "TYPE" "work,voice"))
-                                   tel-props)))
-      (should work-phone)
-      (should (string= "+1-555-0003" (ecard-property-value work-phone))))))
+                                       (let* ((vc (ecard-org-entry-to-ecard))
+                                              (tel-props (ecard-tel vc))
+                                              (work-phone (cl-find-if (lambda (p)
+                                                                        (ecard-org-test--property-has-parameter-p p "TYPE" "work,voice"))
+                                                                      tel-props)))
+                                         (should work-phone)
+                                         (should (string= "+1-555-0003" (ecard-property-value work-phone))))))
 
 (ert-deftest ecard-org-test-fax ()
   "Test FAX mapping."
   (ecard-org-test-with-temp-org-buffer ecard-org-test-phone-variants
-    (let* ((vc (ecard-org-entry-to-ecard))
-           (tel-props (ecard-tel vc))
-           (fax (cl-find-if (lambda (p)
-                              (ecard-org-test--property-has-parameter-p p "TYPE" "fax"))
-                            tel-props)))
-      (should fax)
-      (should (string= "+1-555-0005" (ecard-property-value fax))))))
+                                       (let* ((vc (ecard-org-entry-to-ecard))
+                                              (tel-props (ecard-tel vc))
+                                              (fax (cl-find-if (lambda (p)
+                                                                 (ecard-org-test--property-has-parameter-p p "TYPE" "fax"))
+                                                               tel-props)))
+                                         (should fax)
+                                         (should (string= "+1-555-0005" (ecard-property-value fax))))))
 
 (ert-deftest ecard-org-test-all-standard-properties ()
   "Test all standard property mappings in one entry."
   (ecard-org-test-with-temp-org-buffer ecard-org-test-complex-entry
-    (let ((vc (ecard-org-entry-to-ecard)))
-      (should (string= "Jane Smith" (ecard-get-property-value vc 'fn)))
-      (should (equal '("Smith" "Jane" "Marie" "Dr." "PhD")
-                     (ecard-get-property-value vc 'n)))
-      (should (= 3 (length (ecard-email vc))))
-      (should (= 2 (length (ecard-tel vc))))
-      (should (equal '("Acme Corporation" "Engineering" "Software")
-                     (ecard-get-property-value vc 'org)))
-      (should (string= "Senior Software Engineer" (ecard-get-property-value vc 'title)))
-      (should (string= "Team Lead" (ecard-get-property-value vc 'role)))
-      (should (string= "https://jane.example.com" (ecard-get-property-value vc 'url)))
-      (should (string= "Met at conference 2024" (ecard-get-property-value vc 'note)))
-      (should (string= "1985-03-15" (ecard-get-property-value vc 'bday)))
-      (should (equal '("colleague" "tech" "friend")
-                     (ecard-get-property-value vc 'categories)))
-      (should (equal '("Janie" "J")
-                     (ecard-get-property-value vc 'nickname))))))
+                                       (let ((vc (ecard-org-entry-to-ecard)))
+                                         (should (string= "Jane Smith" (ecard-get-property-value vc 'fn)))
+                                         (should (equal '("Smith" "Jane" "Marie" "Dr." "PhD")
+                                                        (ecard-get-property-value vc 'n)))
+                                         (should (= 3 (length (ecard-email vc))))
+                                         (should (= 2 (length (ecard-tel vc))))
+                                         (should (equal '("Acme Corporation" "Engineering" "Software")
+                                                        (ecard-get-property-value vc 'org)))
+                                         (should (string= "Senior Software Engineer" (ecard-get-property-value vc 'title)))
+                                         (should (string= "Team Lead" (ecard-get-property-value vc 'role)))
+                                         (should (string= "https://jane.example.com" (ecard-get-property-value vc 'url)))
+                                         (should (string= "Met at conference 2024" (ecard-get-property-value vc 'note)))
+                                         (should (string= "1985-03-15" (ecard-get-property-value vc 'bday)))
+                                         (should (equal '("colleague" "tech" "friend")
+                                                        (ecard-get-property-value vc 'categories)))
+                                         (should (equal '("Janie" "J")
+                                                        (ecard-get-property-value vc 'nickname))))))
 
 ;;; 3. Contact Detection Tests
 
 (ert-deftest ecard-org-test-contact-with-explicit-ecard ()
   "Test contact detection with explicit VCARD property."
   (ecard-org-test-with-temp-org-buffer ecard-org-test-simple-entry
-    (should (ecard-org--is-contact-p))))
+                                       (should (ecard-org--is-contact-p))))
 
 (ert-deftest ecard-org-test-contact-auto-detect-enabled ()
   "Test contact auto-detection when enabled."
   (let ((ecard-org-require-ecard-property nil))
     (ecard-org-test-with-temp-org-buffer ecard-org-test-no-ecard-marker
-      (should (ecard-org--is-contact-p)))))
+                                         (should (ecard-org--is-contact-p)))))
 
 (ert-deftest ecard-org-test-contact-auto-detect-disabled ()
   "Test contact detection when auto-detect is disabled."
   (let ((ecard-org-require-ecard-property t))
     (ecard-org-test-with-temp-org-buffer ecard-org-test-no-ecard-marker
-      (should-not (ecard-org--is-contact-p)))))
+                                         (should-not (ecard-org--is-contact-p)))))
 
 (ert-deftest ecard-org-test-non-contact-entry ()
   "Test that non-contact entries are not detected."
   (ecard-org-test-with-temp-org-buffer ecard-org-test-non-contact
-    (should-not (ecard-org--is-contact-p))))
+                                       (should-not (ecard-org--is-contact-p))))
 
 (ert-deftest ecard-org-test-non-heading-ignored ()
   "Test that non-heading content is ignored."
   (ecard-org-test-with-temp-org-buffer
-      "Some random text\n:PROPERTIES:\n:EMAIL: test@example.com\n:END:\n"
-    ;; Should error because not at heading
-    (should-error (ecard-org-entry-to-ecard))))
+   "Some random text\n:PROPERTIES:\n:EMAIL: test@example.com\n:END:\n"
+   ;; Should error because not at heading
+   (should-error (ecard-org-entry-to-ecard))))
 
 ;;; 4. Batch Operation Tests
 
 (ert-deftest ecard-org-test-batch-export-buffer-single ()
   "Test exporting single contact from buffer."
   (ecard-org-test-with-temp-org-buffer ecard-org-test-simple-entry
-    (let ((vcards (ecard-org-buffer-to-vcards)))
-      (should (= (length vcards) 1))
-      (should (string= "John Doe" (ecard-get-property-value (car vcards) 'fn))))))
+                                       (let ((vcards (ecard-org-buffer-to-vcards)))
+                                         (should (= (length vcards) 1))
+                                         (should (string= "John Doe" (ecard-get-property-value (car vcards) 'fn))))))
 
 (ert-deftest ecard-org-test-batch-export-buffer-multiple ()
   "Test exporting multiple contacts from buffer."
   (ecard-org-test-with-temp-org-buffer ecard-org-test-multiple-entries
-    (let ((vcards (ecard-org-buffer-to-vcards)))
-      (should (= (length vcards) 3))
-      (should (string= "Alice Johnson" (ecard-get-property-value (nth 0 vcards) 'fn)))
-      (should (string= "Bob Wilson" (ecard-get-property-value (nth 1 vcards) 'fn)))
-      (should (string= "Carol Brown" (ecard-get-property-value (nth 2 vcards) 'fn))))))
+                                       (let ((vcards (ecard-org-buffer-to-vcards)))
+                                         (should (= (length vcards) 3))
+                                         (should (string= "Alice Johnson" (ecard-get-property-value (nth 0 vcards) 'fn)))
+                                         (should (string= "Bob Wilson" (ecard-get-property-value (nth 1 vcards) 'fn)))
+                                         (should (string= "Carol Brown" (ecard-get-property-value (nth 2 vcards) 'fn))))))
 
 (ert-deftest ecard-org-test-batch-export-buffer-no-contacts ()
   "Test exporting buffer with no contacts."
   (ecard-org-test-with-temp-org-buffer ecard-org-test-non-contact
-    (let ((vcards (ecard-org-buffer-to-vcards)))
-      (should (null vcards)))))
+                                       (let ((vcards (ecard-org-buffer-to-vcards)))
+                                         (should (null vcards)))))
 
 (ert-deftest ecard-org-test-batch-export-region ()
   "Test exporting contacts from region."
   (ecard-org-test-with-temp-org-buffer ecard-org-test-multiple-entries
-    ;; Select region covering first two entries
-    (goto-char (point-min))
-    (set-mark (point))
-    (search-forward "* Carol Brown")
-    (beginning-of-line)
-    ;; Activate region for use-region-p
-    (activate-mark)
-    (let ((vcards (ecard-org-region-to-vcards)))
-      (should (= (length vcards) 2))
-      (should (string= "Alice Johnson" (ecard-get-property-value (nth 0 vcards) 'fn)))
-      (should (string= "Bob Wilson" (ecard-get-property-value (nth 1 vcards) 'fn))))))
+                                       ;; Select region covering first two entries
+                                       (goto-char (point-min))
+                                       (set-mark (point))
+                                       (search-forward "* Carol Brown")
+                                       (beginning-of-line)
+                                       ;; Activate region for use-region-p
+                                       (activate-mark)
+                                       (let ((vcards (ecard-org-region-to-vcards)))
+                                         (should (= (length vcards) 2))
+                                         (should (string= "Alice Johnson" (ecard-get-property-value (nth 0 vcards) 'fn)))
+                                         (should (string= "Bob Wilson" (ecard-get-property-value (nth 1 vcards) 'fn))))))
 
 (ert-deftest ecard-org-test-batch-export-region-no-active-region ()
   "Test that export-region errors without active region."
   (ecard-org-test-with-temp-org-buffer ecard-org-test-simple-entry
-    (deactivate-mark)
-    (should-error (ecard-org-region-to-vcards) :type 'user-error)))
+                                       (deactivate-mark)
+                                       (should-error (ecard-org-region-to-vcards) :type 'user-error)))
 
 (ert-deftest ecard-org-test-batch-export-subtree ()
   "Test exporting subtree with nested contacts."
   (ecard-org-test-with-temp-org-buffer ecard-org-test-nested-contacts
-    (goto-char (point-min))
-    (let ((vcards (ecard-org-subtree-to-vcards)))
-      (should (= (length vcards) 3))
-      (should (string= "Parent Entry" (ecard-get-property-value (nth 0 vcards) 'fn)))
-      (should (string= "Child Entry" (ecard-get-property-value (nth 1 vcards) 'fn)))
-      (should (string= "Grandchild Entry" (ecard-get-property-value (nth 2 vcards) 'fn))))))
+                                       (goto-char (point-min))
+                                       (let ((vcards (ecard-org-subtree-to-vcards)))
+                                         (should (= (length vcards) 3))
+                                         (should (string= "Parent Entry" (ecard-get-property-value (nth 0 vcards) 'fn)))
+                                         (should (string= "Child Entry" (ecard-get-property-value (nth 1 vcards) 'fn)))
+                                         (should (string= "Grandchild Entry" (ecard-get-property-value (nth 2 vcards) 'fn))))))
 
 (ert-deftest ecard-org-test-batch-import-single ()
   "Test importing single vCard."
@@ -676,11 +676,11 @@ Org ID uses plain UUID, vCard UID has urn:uuid: prefix, round-trip preserves bot
             (insert (ecard-serialize (ecard-create :fn "Second" :email "second@example.com"))))
           ;; Import
           (ecard-org-test-with-temp-org-buffer ""
-            (ecard-org-import-file temp-file)
-            (let ((vcards (ecard-org-buffer-to-vcards)))
-              (should (= (length vcards) 2))
-              (should (string= "First" (ecard-get-property-value (nth 0 vcards) 'fn)))
-              (should (string= "Second" (ecard-get-property-value (nth 1 vcards) 'fn))))))
+                                               (ecard-org-import-file temp-file)
+                                               (let ((vcards (ecard-org-buffer-to-vcards)))
+                                                 (should (= (length vcards) 2))
+                                                 (should (string= "First" (ecard-get-property-value (nth 0 vcards) 'fn)))
+                                                 (should (string= "Second" (ecard-get-property-value (nth 1 vcards) 'fn))))))
       (when (file-exists-p temp-file)
         (delete-file temp-file)))))
 
@@ -704,110 +704,110 @@ Org ID uses plain UUID, vCard UID has urn:uuid: prefix, round-trip preserves bot
   "Test importing contacts at specific heading level."
   (let ((vc (ecard-create :fn "Level Test" :email "level@example.com")))
     (ecard-org-test-with-temp-org-buffer ""
-      ;; Import at level 3
-      (insert (ecard-org-ecard-to-entry vc 3))
-      (goto-char (point-min))
-      (should (looking-at "\\*\\*\\* Level Test")))))
+                                         ;; Import at level 3
+                                         (insert (ecard-org-ecard-to-entry vc 3))
+                                         (goto-char (point-min))
+                                         (should (looking-at "\\*\\*\\* Level Test")))))
 
 ;;; 5. Edge Case Tests
 
 (ert-deftest ecard-org-test-empty-property-values ()
   "Test handling of empty property values."
   (ecard-org-test-with-temp-org-buffer
-      "* Test\n:PROPERTIES:\n:VCARD: t\n:EMAIL: \n:NOTE: \n:END:\n"
-    (let ((vc (ecard-org-entry-to-ecard)))
-      (should vc)
-      (should (string= "Test" (ecard-get-property-value vc 'fn)))
-      ;; Empty/whitespace-only properties are still added by org-entry-properties
-      ;; They get empty string values
-      (if (ecard-email vc)
-          (should (string-empty-p (ecard-get-property-value vc 'email)))
-        ;; Some versions might not include them
-        t))))
+   "* Test\n:PROPERTIES:\n:VCARD: t\n:EMAIL: \n:NOTE: \n:END:\n"
+   (let ((vc (ecard-org-entry-to-ecard)))
+     (should vc)
+     (should (string= "Test" (ecard-get-property-value vc 'fn)))
+     ;; Empty/whitespace-only properties are still added by org-entry-properties
+     ;; They get empty string values
+     (if (ecard-email vc)
+         (should (string-empty-p (ecard-get-property-value vc 'email)))
+       ;; Some versions might not include them
+       t))))
 
 (ert-deftest ecard-org-test-special-characters-note ()
   "Test properties with special characters requiring escaping."
   (ecard-org-test-with-temp-org-buffer ecard-org-test-special-chars
-    (let ((vc (ecard-org-entry-to-ecard)))
-      (should vc)
-      ;; NOTE with escaped newlines, commas, and semicolons
-      (let ((note (ecard-get-property-value vc 'note)))
-        (should (string-match-p "Line1" note))
-        (should (string-match-p "Line2" note))))))
+                                       (let ((vc (ecard-org-entry-to-ecard)))
+                                         (should vc)
+                                         ;; NOTE with escaped newlines, commas, and semicolons
+                                         (let ((note (ecard-get-property-value vc 'note)))
+                                           (should (string-match-p "Line1" note))
+                                           (should (string-match-p "Line2" note))))))
 
 (ert-deftest ecard-org-test-utf8-characters ()
   "Test UTF-8 characters including emoji."
   (ecard-org-test-with-temp-org-buffer ecard-org-test-utf8
-    (let ((vc (ecard-org-entry-to-ecard)))
-      (should vc)
-      (should (string= "François Müller 日本" (ecard-get-property-value vc 'fn)))
-      (should (string= "françois@example.com" (ecard-get-property-value vc 'email)))
-      (let ((note (ecard-get-property-value vc 'note)))
-        (should (string-match-p "🎉" note))
-        (should (string-match-p "❤️" note))
-        (should (string-match-p "🌟" note))))))
+                                       (let ((vc (ecard-org-entry-to-ecard)))
+                                         (should vc)
+                                         (should (string= "François Müller 日本" (ecard-get-property-value vc 'fn)))
+                                         (should (string= "françois@example.com" (ecard-get-property-value vc 'email)))
+                                         (let ((note (ecard-get-property-value vc 'note)))
+                                           (should (string-match-p "🎉" note))
+                                           (should (string-match-p "❤️" note))
+                                           (should (string-match-p "🌟" note))))))
 
 (ert-deftest ecard-org-test-very-long-property-values ()
   "Test properties with very long values (line folding)."
   (let* ((long-note (make-string 300 ?x))
          (entry (format "* Test\n:PROPERTIES:\n:VCARD: t\n:NOTE: %s\n:END:\n" long-note)))
     (ecard-org-test-with-temp-org-buffer entry
-      (let* ((vc (ecard-org-entry-to-ecard))
-             (vcf-text (ecard-serialize vc)))
-        (should vc)
-        (should (string= long-note (ecard-get-property-value vc 'note)))
-        ;; Verify serialized vCard has folded lines
-        (should (string-match-p "\r\n " vcf-text))))))
+                                         (let* ((vc (ecard-org-entry-to-ecard))
+                                                (vcf-text (ecard-serialize vc)))
+                                           (should vc)
+                                           (should (string= long-note (ecard-get-property-value vc 'note)))
+                                           ;; Verify serialized vCard has folded lines
+                                           (should (string-match-p "\r\n " vcf-text))))))
 
 (ert-deftest ecard-org-test-malformed-org-semicolons ()
   "Test that malformed structured properties are handled."
   (ecard-org-test-with-temp-org-buffer
-      "* Test\n:PROPERTIES:\n:VCARD: t\n:ORG: Single Value\n:END:\n"
-    (let ((vc (ecard-org-entry-to-ecard)))
-      (should vc)
-      ;; Single value without semicolons becomes single-element list
-      (should (equal '("Single Value") (ecard-get-property-value vc 'org))))))
+   "* Test\n:PROPERTIES:\n:VCARD: t\n:ORG: Single Value\n:END:\n"
+   (let ((vc (ecard-org-entry-to-ecard)))
+     (should vc)
+     ;; Single value without semicolons becomes single-element list
+     (should (equal '("Single Value") (ecard-get-property-value vc 'org))))))
 
 (ert-deftest ecard-org-test-missing-fn-heading ()
   "Test entry with empty or missing heading."
   (ecard-org-test-with-temp-org-buffer
-      "* \n:PROPERTIES:\n:VCARD: t\n:EMAIL: test@example.com\n:END:\n"
-    (let ((vc (ecard-org-entry-to-ecard)))
-      (should vc)
-      ;; Empty heading should result in empty FN
-      (let ((fn (ecard-get-property-value vc 'fn)))
-        (should (or (null fn) (string-empty-p fn)))))))
+   "* \n:PROPERTIES:\n:VCARD: t\n:EMAIL: test@example.com\n:END:\n"
+   (let ((vc (ecard-org-entry-to-ecard)))
+     (should vc)
+     ;; Empty heading should result in empty FN
+     (let ((fn (ecard-get-property-value vc 'fn)))
+       (should (or (null fn) (string-empty-p fn)))))))
 
 (ert-deftest ecard-org-test-duplicate-properties-same-type ()
   "Test multiple properties with same type and parameters."
   (ecard-org-test-with-temp-org-buffer
-      "* Test\n:PROPERTIES:\n:VCARD: t\n:EMAIL: email1@example.com\n:EMAIL: email2@example.com\n:END:\n"
-    (let ((vc (ecard-org-entry-to-ecard)))
-      (should vc)
-      ;; Org only keeps the last property value when there are duplicates
-      ;; org-entry-properties returns only one EMAIL entry
-      (should (or (string= "email1@example.com" (ecard-get-property-value vc 'email))
-                  (string= "email2@example.com" (ecard-get-property-value vc 'email)))))))
+   "* Test\n:PROPERTIES:\n:VCARD: t\n:EMAIL: email1@example.com\n:EMAIL: email2@example.com\n:END:\n"
+   (let ((vc (ecard-org-entry-to-ecard)))
+     (should vc)
+     ;; Org only keeps the last property value when there are duplicates
+     ;; org-entry-properties returns only one EMAIL entry
+     (should (or (string= "email1@example.com" (ecard-get-property-value vc 'email))
+                 (string= "email2@example.com" (ecard-get-property-value vc 'email)))))))
 
 (ert-deftest ecard-org-test-unknown-properties-export-enabled ()
   "Test unknown properties exported as X-ORG-* when enabled."
   (let ((ecard-org-export-unknown-properties t))
     (ecard-org-test-with-temp-org-buffer
-        "* Test\n:PROPERTIES:\n:VCARD: t\n:CUSTOM_FIELD: custom value\n:END:\n"
-      ;; NOTE: Current implementation has a bug - ecard-add-property doesn't work for X-* properties
-      ;; This test documents the current (broken) behavior
-      ;; The function tries to add X-ORG-CUSTOM_FIELD but ecard-add-property fails for X-* properties
-      (should-error (ecard-org-entry-to-ecard) :type 'invalid-slot-name))))
+     "* Test\n:PROPERTIES:\n:VCARD: t\n:CUSTOM_FIELD: custom value\n:END:\n"
+     ;; NOTE: Current implementation has a bug - ecard-add-property doesn't work for X-* properties
+     ;; This test documents the current (broken) behavior
+     ;; The function tries to add X-ORG-CUSTOM_FIELD but ecard-add-property fails for X-* properties
+     (should-error (ecard-org-entry-to-ecard) :type 'invalid-slot-name))))
 
 (ert-deftest ecard-org-test-unknown-properties-export-disabled ()
   "Test unknown properties not exported when disabled."
   (let ((ecard-org-export-unknown-properties nil))
     (ecard-org-test-with-temp-org-buffer
-        "* Test\n:PROPERTIES:\n:VCARD: t\n:CUSTOM_FIELD: custom value\n:END:\n"
-      (let* ((vc (ecard-org-entry-to-ecard))
-             (extended (ecard-extended vc)))
-        (should vc)
-        (should-not extended)))))
+     "* Test\n:PROPERTIES:\n:VCARD: t\n:CUSTOM_FIELD: custom value\n:END:\n"
+     (let* ((vc (ecard-org-entry-to-ecard))
+            (extended (ecard-extended vc)))
+       (should vc)
+       (should-not extended)))))
 
 (ert-deftest ecard-org-test-unmapped-ecard-import-enabled ()
   "Test unmapped vCard properties imported when enabled."
@@ -837,60 +837,60 @@ Org ID uses plain UUID, vCard UID has urn:uuid: prefix, round-trip preserves bot
 (ert-deftest ecard-org-test-validate-entry-valid ()
   "Test validation of valid contact entry."
   (ecard-org-test-with-temp-org-buffer ecard-org-test-simple-entry
-    (should (ecard-org-validate-entry))))
+                                       (should (ecard-org-validate-entry))))
 
 (ert-deftest ecard-org-test-validate-entry-no-ecard-marker ()
   "Test validation of entry without VCARD marker."
   (let ((ecard-org-require-ecard-property t))
     (ecard-org-test-with-temp-org-buffer ecard-org-test-no-ecard-marker
-      (should-not (ecard-org-validate-entry)))))
+                                         (should-not (ecard-org-validate-entry)))))
 
 (ert-deftest ecard-org-test-validate-entry-empty-heading ()
   "Test validation warns about empty heading."
   (ecard-org-test-with-temp-org-buffer
-      "* \n:PROPERTIES:\n:VCARD: t\n:EMAIL: test@example.com\n:END:\n"
-    (should-not (ecard-org-validate-entry))))
+   "* \n:PROPERTIES:\n:VCARD: t\n:EMAIL: test@example.com\n:END:\n"
+   (should-not (ecard-org-validate-entry))))
 
 (ert-deftest ecard-org-test-validate-entry-org-without-semicolons ()
   "Test validation warns about ORG without semicolons."
   (ecard-org-test-with-temp-org-buffer
-      "* Test\n:PROPERTIES:\n:VCARD: t\n:ORG: NoSemicolons\n:END:\n"
-    (should-not (ecard-org-validate-entry))))
+   "* Test\n:PROPERTIES:\n:VCARD: t\n:ORG: NoSemicolons\n:END:\n"
+   (should-not (ecard-org-validate-entry))))
 
 (ert-deftest ecard-org-test-validate-entry-address-without-semicolons ()
   "Test validation warns about ADDRESS without semicolons."
   (ecard-org-test-with-temp-org-buffer
-      "* Test\n:PROPERTIES:\n:VCARD: t\n:ADDRESS_HOME: 123 Main St\n:END:\n"
-    (should-not (ecard-org-validate-entry))))
+   "* Test\n:PROPERTIES:\n:VCARD: t\n:ADDRESS_HOME: 123 Main St\n:END:\n"
+   (should-not (ecard-org-validate-entry))))
 
 (ert-deftest ecard-org-test-count-contacts-multiple ()
   "Test counting contacts in buffer."
   (ecard-org-test-with-temp-org-buffer ecard-org-test-multiple-entries
-    (should (= 3 (ecard-org-count-contacts)))))
+                                       (should (= 3 (ecard-org-count-contacts)))))
 
 (ert-deftest ecard-org-test-count-contacts-none ()
   "Test counting contacts when none exist."
   (ecard-org-test-with-temp-org-buffer ecard-org-test-non-contact
-    (should (= 0 (ecard-org-count-contacts)))))
+                                       (should (= 0 (ecard-org-count-contacts)))))
 
 (ert-deftest ecard-org-test-count-contacts-with-auto-detect ()
   "Test counting with auto-detection enabled."
   (let ((ecard-org-require-ecard-property nil))
     (ecard-org-test-with-temp-org-buffer
-        (concat ecard-org-test-simple-entry ecard-org-test-no-ecard-marker)
-      (should (= 2 (ecard-org-count-contacts))))))
+     (concat ecard-org-test-simple-entry ecard-org-test-no-ecard-marker)
+     (should (= 2 (ecard-org-count-contacts))))))
 
 ;;; 7. Customization Tests
 
 (ert-deftest ecard-org-test-toggle-require-ecard-property ()
   "Test toggling require-ecard-property setting."
   (ecard-org-test-with-temp-org-buffer ecard-org-test-no-ecard-marker
-    ;; With requirement
-    (let ((ecard-org-require-ecard-property t))
-      (should-not (ecard-org-entry-to-ecard)))
-    ;; Without requirement
-    (let ((ecard-org-require-ecard-property nil))
-      (should (ecard-org-entry-to-ecard)))))
+                                       ;; With requirement
+                                       (let ((ecard-org-require-ecard-property t))
+                                         (should-not (ecard-org-entry-to-ecard)))
+                                       ;; Without requirement
+                                       (let ((ecard-org-require-ecard-property nil))
+                                         (should (ecard-org-entry-to-ecard)))))
 
 (ert-deftest ecard-org-test-toggle-auto-mark-contacts ()
   "Test toggling auto-mark-contacts setting."
@@ -907,13 +907,13 @@ Org ID uses plain UUID, vCard UID has urn:uuid: prefix, round-trip preserves bot
   ;; With export - currently broken due to ecard-add-property not supporting X-* properties
   (let ((ecard-org-export-unknown-properties t))
     (ecard-org-test-with-temp-org-buffer
-        "* Test\n:PROPERTIES:\n:VCARD: t\n:CUSTOM: value\n:END:\n"
-      (should-error (ecard-org-entry-to-ecard) :type 'invalid-slot-name)))
+     "* Test\n:PROPERTIES:\n:VCARD: t\n:CUSTOM: value\n:END:\n"
+     (should-error (ecard-org-entry-to-ecard) :type 'invalid-slot-name)))
   ;; Without export - should work
   (let ((ecard-org-export-unknown-properties nil))
     (ecard-org-test-with-temp-org-buffer
-        "* Test\n:PROPERTIES:\n:VCARD: t\n:CUSTOM: value\n:END:\n"
-      (should-not (ecard-extended (ecard-org-entry-to-ecard))))))
+     "* Test\n:PROPERTIES:\n:VCARD: t\n:CUSTOM: value\n:END:\n"
+     (should-not (ecard-extended (ecard-org-entry-to-ecard))))))
 
 (ert-deftest ecard-org-test-toggle-import-unmapped-properties ()
   "Test toggling import-unmapped-properties setting."
@@ -934,24 +934,24 @@ Org ID uses plain UUID, vCard UID has urn:uuid: prefix, round-trip preserves bot
          (cons '("CUSTOM_EMAIL" email (("TYPE" . "custom")))
                ecard-org-property-mappings)))
     (ecard-org-test-with-temp-org-buffer
-        "* Test\n:PROPERTIES:\n:VCARD: t\n:CUSTOM_EMAIL: custom@example.com\n:END:\n"
-      (let* ((vc (ecard-org-entry-to-ecard))
-             (email-prop (car (ecard-email vc))))
-        (should (string= "custom@example.com" (ecard-property-value email-prop)))
-        (should (ecard-org-test--property-has-parameter-p
-                 email-prop "TYPE" "custom"))))))
+     "* Test\n:PROPERTIES:\n:VCARD: t\n:CUSTOM_EMAIL: custom@example.com\n:END:\n"
+     (let* ((vc (ecard-org-entry-to-ecard))
+            (email-prop (car (ecard-email vc))))
+       (should (string= "custom@example.com" (ecard-property-value email-prop)))
+       (should (ecard-org-test--property-has-parameter-p
+                email-prop "TYPE" "custom"))))))
 
 ;;; 8. Additional Edge Cases
 
 (ert-deftest ecard-org-test-entry-with-body-content ()
   "Test that entry body content is ignored."
   (ecard-org-test-with-temp-org-buffer
-      "* Test Contact\n:PROPERTIES:\n:VCARD: t\n:EMAIL: test@example.com\n:END:\n\nSome body text.\n\n- List item\n"
-    (let ((vc (ecard-org-entry-to-ecard)))
-      (should vc)
-      (should (string= "Test Contact" (ecard-get-property-value vc 'fn)))
-      ;; Body content should not affect vCard
-      (should-not (ecard-get-property-value vc 'note)))))
+   "* Test Contact\n:PROPERTIES:\n:VCARD: t\n:EMAIL: test@example.com\n:END:\n\nSome body text.\n\n- List item\n"
+   (let ((vc (ecard-org-entry-to-ecard)))
+     (should vc)
+     (should (string= "Test Contact" (ecard-get-property-value vc 'fn)))
+     ;; Body content should not affect vCard
+     (should-not (ecard-get-property-value vc 'note)))))
 
 (ert-deftest ecard-org-test-ecard-to-org-preserves-n-property ()
   "Test that N property is preserved in conversion."
@@ -997,8 +997,8 @@ Org ID uses plain UUID, vCard UID has urn:uuid: prefix, round-trip preserves bot
   (let ((temp-file (make-temp-file "ecard-org-test" nil ".vcf")))
     (unwind-protect
         (ecard-org-test-with-temp-org-buffer ecard-org-test-multiple-entries
-          (let ((count (ecard-org-export-buffer temp-file)))
-            (should (= 3 count))))
+                                             (let ((count (ecard-org-export-buffer temp-file)))
+                                               (should (= 3 count))))
       (when (file-exists-p temp-file)
         (delete-file temp-file)))))
 
@@ -1007,8 +1007,8 @@ Org ID uses plain UUID, vCard UID has urn:uuid: prefix, round-trip preserves bot
   (let ((temp-file (make-temp-file "ecard-org-test" nil ".vcf")))
     (unwind-protect
         (ecard-org-test-with-temp-org-buffer ecard-org-test-non-contact
-          (let ((count (ecard-org-export-buffer temp-file)))
-            (should-not count)))
+                                             (let ((count (ecard-org-export-buffer temp-file)))
+                                               (should-not count)))
       (when (file-exists-p temp-file)
         (delete-file temp-file)))))
 
@@ -1029,22 +1029,22 @@ Org ID uses plain UUID, vCard UID has urn:uuid: prefix, round-trip preserves bot
 (ert-deftest ecard-org-test-whitespace-handling-categories ()
   "Test that whitespace is trimmed from CATEGORIES."
   (ecard-org-test-with-temp-org-buffer
-      "* Test\n:PROPERTIES:\n:VCARD: t\n:CATEGORIES: cat1 , cat2 , cat3\n:END:\n"
-    (let ((vc (ecard-org-entry-to-ecard)))
-      (should vc)
-      ;; Whitespace should be trimmed
-      (should (equal '("cat1" "cat2" "cat3")
-                     (ecard-get-property-value vc 'categories))))))
+   "* Test\n:PROPERTIES:\n:VCARD: t\n:CATEGORIES: cat1 , cat2 , cat3\n:END:\n"
+   (let ((vc (ecard-org-entry-to-ecard)))
+     (should vc)
+     ;; Whitespace should be trimmed
+     (should (equal '("cat1" "cat2" "cat3")
+                    (ecard-get-property-value vc 'categories))))))
 
 (ert-deftest ecard-org-test-whitespace-handling-nickname ()
   "Test that whitespace is trimmed from NICKNAME."
   (ecard-org-test-with-temp-org-buffer
-      "* Test\n:PROPERTIES:\n:VCARD: t\n:NICKNAME: Nick1 , Nick2 , Nick3\n:END:\n"
-    (let ((vc (ecard-org-entry-to-ecard)))
-      (should vc)
-      ;; Whitespace should be trimmed
-      (should (equal '("Nick1" "Nick2" "Nick3")
-                     (ecard-get-property-value vc 'nickname))))))
+   "* Test\n:PROPERTIES:\n:VCARD: t\n:NICKNAME: Nick1 , Nick2 , Nick3\n:END:\n"
+   (let ((vc (ecard-org-entry-to-ecard)))
+     (should vc)
+     ;; Whitespace should be trimmed
+     (should (equal '("Nick1" "Nick2" "Nick3")
+                    (ecard-get-property-value vc 'nickname))))))
 
 ;;; 9. LOCATION/GEO Property Tests
 
@@ -1053,7 +1053,7 @@ Org ID uses plain UUID, vCard UID has urn:uuid: prefix, round-trip preserves bot
 This test case is based on a real-world user issue where entries
 with PHONE and LOCATION properties were not being recognized as contacts."
   (ecard-org-test-with-temp-org-buffer
-      "* Jonathan Johnson
+   "* Jonathan Johnson
 :PROPERTIES:
 :VCARD: t
 :ID:       AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE
@@ -1062,11 +1062,11 @@ with PHONE and LOCATION properties were not being recognized as contacts."
 :PHONE:    555-123-4567
 :END:
 "
-    (let ((vc (ecard-org-entry-to-ecard)))
-      (should vc)
-      (should (string= "Jonathan Johnson" (ecard-get-property-value vc 'fn)))
-      (should (string= "555-123-4567" (ecard-get-property-value vc 'tel)))
-      (should (string= "12.345678,-98.765432" (ecard-get-property-value vc 'geo))))))
+   (let ((vc (ecard-org-entry-to-ecard)))
+     (should vc)
+     (should (string= "Jonathan Johnson" (ecard-get-property-value vc 'fn)))
+     (should (string= "555-123-4567" (ecard-get-property-value vc 'tel)))
+     (should (string= "12.345678,-98.765432" (ecard-get-property-value vc 'geo))))))
 
 (ert-deftest ecard-org-test-location-to-geo-auto-detect ()
   "Test LOCATION property converts to GEO with auto-detection enabled.
@@ -1075,7 +1075,7 @@ are recognized even without explicit VCARD marker when auto-detection
 is enabled."
   (let ((ecard-org-require-ecard-property nil))
     (ecard-org-test-with-temp-org-buffer
-        "* Jonathan Johnson
+     "* Jonathan Johnson
 :PROPERTIES:
 :ID:       AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE
 :CREATED:  [2025-10-05 Sun 13:54]
@@ -1083,11 +1083,11 @@ is enabled."
 :PHONE:    555-123-4567
 :END:
 "
-      (let ((vc (ecard-org-entry-to-ecard)))
-        (should vc)
-        (should (string= "Jonathan Johnson" (ecard-get-property-value vc 'fn)))
-        (should (string= "555-123-4567" (ecard-get-property-value vc 'tel)))
-        (should (string= "12.345678,-98.765432" (ecard-get-property-value vc 'geo)))))))
+     (let ((vc (ecard-org-entry-to-ecard)))
+       (should vc)
+       (should (string= "Jonathan Johnson" (ecard-get-property-value vc 'fn)))
+       (should (string= "555-123-4567" (ecard-get-property-value vc 'tel)))
+       (should (string= "12.345678,-98.765432" (ecard-get-property-value vc 'geo)))))))
 
 (ert-deftest ecard-org-test-location-to-geo-requires-vcard-marker ()
   "Test that LOCATION property is NOT converted without VCARD marker by default.
@@ -1096,7 +1096,7 @@ When ecard-org-require-ecard-property is t (default), entries without
 contact-like properties."
   (let ((ecard-org-require-ecard-property t))
     (ecard-org-test-with-temp-org-buffer
-        "* Jonathan Johnson
+     "* Jonathan Johnson
 :PROPERTIES:
 :ID:       AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE
 :CREATED:  [2025-10-05 Sun 13:54]
@@ -1104,9 +1104,9 @@ contact-like properties."
 :PHONE:    555-123-4567
 :END:
 "
-      (let ((vc (ecard-org-entry-to-ecard)))
-        ;; Should return nil because no VCARD marker and auto-detect disabled
-        (should-not vc)))))
+     (let ((vc (ecard-org-entry-to-ecard)))
+       ;; Should return nil because no VCARD marker and auto-detect disabled
+       (should-not vc)))))
 
 (ert-deftest ecard-org-test-geo-to-location-reverse-mapping ()
   "Test reverse mapping from vCard GEO to Org LOCATION property."
@@ -1118,37 +1118,37 @@ contact-like properties."
 (ert-deftest ecard-org-test-location-round-trip ()
   "Test LOCATION property survives round-trip conversion."
   (ecard-org-test-with-temp-org-buffer
-      "* Test Contact
+   "* Test Contact
 :PROPERTIES:
 :VCARD: t
 :EMAIL: test@example.com
 :LOCATION: 40.7128,-74.0060
 :END:
 "
-    (let* ((vc1 (ecard-org-entry-to-ecard))
-           (org-entry (ecard-org-ecard-to-entry vc1 1)))
-      (erase-buffer)
-      (insert org-entry)
-      (goto-char (point-min))
-      (let ((vc2 (ecard-org-entry-to-ecard)))
-        (should vc2)
-        (should (string= (ecard-get-property-value vc1 'geo)
+   (let* ((vc1 (ecard-org-entry-to-ecard))
+          (org-entry (ecard-org-ecard-to-entry vc1 1)))
+     (erase-buffer)
+     (insert org-entry)
+     (goto-char (point-min))
+     (let ((vc2 (ecard-org-entry-to-ecard)))
+       (should vc2)
+       (should (string= (ecard-get-property-value vc1 'geo)
                         (ecard-get-property-value vc2 'geo)))))))
 
 (ert-deftest ecard-org-test-location-with-uri-format ()
   "Test LOCATION property with geo: URI format."
   (ecard-org-test-with-temp-org-buffer
-      "* Test\n:PROPERTIES:\n:VCARD: t\n:LOCATION: geo:48.198634,16.371648\n:END:\n"
-    (let ((vc (ecard-org-entry-to-ecard)))
-      (should vc)
-      (should (string= "geo:48.198634,16.371648"
+   "* Test\n:PROPERTIES:\n:VCARD: t\n:LOCATION: geo:48.198634,16.371648\n:END:\n"
+   (let ((vc (ecard-org-entry-to-ecard)))
+     (should vc)
+     (should (string= "geo:48.198634,16.371648"
                       (ecard-get-property-value vc 'geo))))))
 
 (ert-deftest ecard-org-test-multiple-contacts-with-location ()
   "Test batch export of multiple contacts with LOCATION properties."
   (let ((ecard-org-require-ecard-property nil))
     (ecard-org-test-with-temp-org-buffer
-        "* Contact One
+     "* Contact One
 :PROPERTIES:
 :PHONE: 555-0001
 :LOCATION: 10.0,20.0
@@ -1166,16 +1166,16 @@ contact-like properties."
 :LOCATION: 50.0,60.0
 :END:
 "
-      (let ((vcards (ecard-org-buffer-to-vcards)))
-        (should (= (length vcards) 3))
-        ;; Verify all have GEO properties
-        (should (ecard-get-property-value (nth 0 vcards) 'geo))
-        (should (ecard-get-property-value (nth 1 vcards) 'geo))
-        (should (ecard-get-property-value (nth 2 vcards) 'geo))
-        ;; Verify specific values
-        (should (string= "10.0,20.0" (ecard-get-property-value (nth 0 vcards) 'geo)))
-        (should (string= "30.0,40.0" (ecard-get-property-value (nth 1 vcards) 'geo)))
-        (should (string= "50.0,60.0" (ecard-get-property-value (nth 2 vcards) 'geo)))))))
+     (let ((vcards (ecard-org-buffer-to-vcards)))
+       (should (= (length vcards) 3))
+       ;; Verify all have GEO properties
+       (should (ecard-get-property-value (nth 0 vcards) 'geo))
+       (should (ecard-get-property-value (nth 1 vcards) 'geo))
+       (should (ecard-get-property-value (nth 2 vcards) 'geo))
+       ;; Verify specific values
+       (should (string= "10.0,20.0" (ecard-get-property-value (nth 0 vcards) 'geo)))
+       (should (string= "30.0,40.0" (ecard-get-property-value (nth 1 vcards) 'geo)))
+       (should (string= "50.0,60.0" (ecard-get-property-value (nth 2 vcards) 'geo)))))))
 
 ;;; Legacy vCard format tests
 
@@ -1199,7 +1199,7 @@ END:VCARD"))
         (should (ecard-p vc))
         (should (string= "John Q. Public" (ecard-get-property-value vc 'fn)))
         (should (equal '("Public" "John" "Quinlan" "Mr." "Esq.")
-                      (ecard-get-property-value vc 'n)))
+                       (ecard-get-property-value vc 'n)))
 
         ;; Check Org entry format
         (should (string-match-p "^\\* John Q. Public" org-entry))
@@ -1215,11 +1215,11 @@ END:VCARD"))
         (let ((vc2 (ecard-org-entry-to-ecard)))
           (should vc2)
           (should (string= (ecard-get-property-value vc 'fn)
-                          (ecard-get-property-value vc2 'fn)))
+                           (ecard-get-property-value vc2 'fn)))
           (should (equal (ecard-get-property-value vc 'n)
-                        (ecard-get-property-value vc2 'n)))
+                         (ecard-get-property-value vc2 'n)))
           (should (equal (ecard-get-property-value vc 'org)
-                        (ecard-get-property-value vc2 'org))))))))
+                         (ecard-get-property-value vc2 'org))))))))
 
 (ert-deftest ecard-org-test-import-ecard-30-format ()
   "Test importing vCard 3.0 format with TYPE=HOME,WORK style parameters."
@@ -1246,7 +1246,7 @@ END:VCARD"))
         (should (ecard-p vc))
         (should (string= "Jane Smith" (ecard-get-property-value vc 'fn)))
         (should (equal '("Smith" "Jane" "Marie" "Dr." "PhD")
-                      (ecard-get-property-value vc 'n)))
+                       (ecard-get-property-value vc 'n)))
 
         ;; Check Org entry format
         (should (string-match-p "^\\* Jane Smith" org-entry))
@@ -1272,11 +1272,11 @@ END:VCARD"))
         (let ((vc2 (ecard-org-entry-to-ecard)))
           (should vc2)
           (should (string= (ecard-get-property-value vc 'fn)
-                          (ecard-get-property-value vc2 'fn)))
+                           (ecard-get-property-value vc2 'fn)))
           (should (string= (ecard-get-property-value vc 'title)
-                          (ecard-get-property-value vc2 'title)))
+                           (ecard-get-property-value vc2 'title)))
           (should (equal (ecard-get-property-value vc 'categories)
-                        (ecard-get-property-value vc2 'categories))))))))
+                         (ecard-get-property-value vc2 'categories))))))))
 
 (ert-deftest ecard-org-test-import-ecard-40-format ()
   "Test importing vCard 4.0 format to ensure existing functionality still works."
@@ -1317,11 +1317,11 @@ END:VCARD"))
         (let ((vc2 (ecard-org-entry-to-ecard)))
           (should vc2)
           (should (string= (ecard-get-property-value vc 'fn)
-                          (ecard-get-property-value vc2 'fn)))
+                           (ecard-get-property-value vc2 'fn)))
           (should (string= (ecard-get-property-value vc 'email)
-                          (ecard-get-property-value vc2 'email)))
+                           (ecard-get-property-value vc2 'email)))
           (should (string= (ecard-get-property-value vc 'title)
-                          (ecard-get-property-value vc2 'title))))))))
+                           (ecard-get-property-value vc2 'title))))))))
 
 (ert-deftest ecard-org-test-legacy-ecard-mixed-versions ()
   "Test importing buffer with mixed vCard versions (2.1, 3.0, 4.0)."
@@ -1450,15 +1450,15 @@ END:VCARD"))
 
               ;; Verify key properties preserved
               (should (string= (ecard-get-property-value vc1 'fn)
-                              (ecard-get-property-value vc2 'fn)))
+                               (ecard-get-property-value vc2 'fn)))
               ;; N property - check the significant parts (empty trailing elements may be dropped)
               (let ((n1 (ecard-get-property-value vc1 'n))
                     (n2 (ecard-get-property-value vc2 'n)))
                 (should (equal (seq-take n1 3) (seq-take n2 3))))
               (should (string= (ecard-get-property-value vc1 'email)
-                              (ecard-get-property-value vc2 'email)))
+                               (ecard-get-property-value vc2 'email)))
               (should (string= (ecard-get-property-value vc1 'title)
-                              (ecard-get-property-value vc2 'title))))))))))
+                               (ecard-get-property-value vc2 'title))))))))))
 
 (provide 'ecard-org-test)
 ;;; ecard-org-test.el ends here

@@ -113,7 +113,7 @@ fetched later with `ecard-display-contacts-refresh-names'."
 
 \\{ecard-display-servers-mode-map}"
   (setq tabulated-list-format [("Name" 30 t)
-                                ("URL" 50 t)]
+                               ("URL" 50 t)]
         tabulated-list-padding 2
         tabulated-list-sort-key (cons "Name" nil))
   (tabulated-list-init-header))
@@ -212,8 +212,8 @@ fetched later with `ecard-display-contacts-refresh-names'."
 
 \\{ecard-display-addressbooks-mode-map}"
   (setq tabulated-list-format [("Name" 30 t)
-                                ("Description" 40 t)
-                                ("Contacts" 10 t)]
+                               ("Description" 40 t)
+                               ("Contacts" 10 t)]
         tabulated-list-padding 2
         tabulated-list-sort-key (cons "Name" nil))
   (tabulated-list-init-header))
@@ -313,8 +313,8 @@ to fetch real contact names for the current page.
 
 \\{ecard-display-contacts-mode-map}"
   (setq tabulated-list-format [("Full Name" 30 t)
-                                ("Email" 35 t)
-                                ("Phone" 20 t)]
+                               ("Email" 35 t)
+                               ("Phone" 20 t)]
         tabulated-list-padding 2
         tabulated-list-sort-key (cons "Full Name" nil))
   (tabulated-list-init-header))
@@ -535,7 +535,7 @@ Fetches full vCard data if not already loaded."
       (message "Loading contact...")
       (condition-case err
           (let ((fetched (ecard-carddav-get-resource ecard-display--addressbook
-                                                       (oref resource url))))
+                                                     (oref resource url))))
             (oset resource ecard (oref fetched ecard))
             (oset resource etag (oref fetched etag))
             (message "Loaded contact"))

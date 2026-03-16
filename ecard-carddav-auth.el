@@ -55,33 +55,33 @@
 ;;; Base authentication class
 
 (defclass ecard-carddav-auth ()
-  ((type
-    :initarg :type
-    :initform nil
-    :type symbol
-    :documentation "Authentication type (:basic, :oauth2, :bearer).")
-   (last-refresh
-    :initarg :last-refresh
-    :initform nil
-    :type (or null number)
-    :documentation "Timestamp of last credential refresh."))
-  "Base class for CardDAV authentication."
-  :abstract t)
+          ((type
+            :initarg :type
+            :initform nil
+            :type symbol
+            :documentation "Authentication type (:basic, :oauth2, :bearer).")
+           (last-refresh
+            :initarg :last-refresh
+            :initform nil
+            :type (or null number)
+            :documentation "Timestamp of last credential refresh."))
+          "Base class for CardDAV authentication."
+          :abstract t)
 
 ;;; Basic Authentication (RFC 2617)
 
 (defclass ecard-carddav-auth-basic (ecard-carddav-auth)
-  ((username
-    :initarg :username
-    :initform nil
-    :type (or null string)
-    :documentation "Username for Basic Auth.")
-   (password
-    :initarg :password
-    :initform nil
-    :type (or null string)
-    :documentation "Password for Basic Auth."))
-  "Basic Authentication credentials for CardDAV.")
+          ((username
+            :initarg :username
+            :initform nil
+            :type (or null string)
+            :documentation "Username for Basic Auth.")
+           (password
+            :initarg :password
+            :initform nil
+            :type (or null string)
+            :documentation "Password for Basic Auth."))
+          "Basic Authentication credentials for CardDAV.")
 
 (cl-defmethod initialize-instance :after ((auth ecard-carddav-auth-basic) &rest _slots)
   "Initialize Basic Auth object AUTH."
@@ -96,8 +96,8 @@ Returns string like \"Basic base64(username:password)\"."
       (signal 'ecard-carddav-auth-error
               '("Basic Auth requires username and password")))
     (let ((credentials (base64-encode-string
-                       (format "%s:%s" username password)
-                       t)))
+                        (format "%s:%s" username password)
+                        t)))
       (format "Basic %s" credentials))))
 
 (cl-defmethod ecard-carddav-auth-valid-p ((auth ecard-carddav-auth-basic))
@@ -139,17 +139,17 @@ Example:
 ;;; Bearer Token Authentication
 
 (defclass ecard-carddav-auth-bearer (ecard-carddav-auth)
-  ((token
-    :initarg :token
-    :initform nil
-    :type (or null string)
-    :documentation "Bearer token for authentication.")
-   (expires-at
-    :initarg :expires-at
-    :initform nil
-    :type (or null number)
-    :documentation "Timestamp when token expires."))
-  "Bearer token authentication for CardDAV.")
+          ((token
+            :initarg :token
+            :initform nil
+            :type (or null string)
+            :documentation "Bearer token for authentication.")
+           (expires-at
+            :initarg :expires-at
+            :initform nil
+            :type (or null number)
+            :documentation "Timestamp when token expires."))
+          "Bearer token authentication for CardDAV.")
 
 (cl-defmethod initialize-instance :after ((auth ecard-carddav-auth-bearer) &rest _slots)
   "Initialize Bearer Auth object AUTH."
@@ -203,37 +203,37 @@ Example:
 ;;; OAuth2 Authentication (structure for future implementation)
 
 (defclass ecard-carddav-auth-oauth2 (ecard-carddav-auth)
-  ((client-id
-    :initarg :client-id
-    :initform nil
-    :type (or null string)
-    :documentation "OAuth2 client ID.")
-   (client-secret
-    :initarg :client-secret
-    :initform nil
-    :type (or null string)
-    :documentation "OAuth2 client secret.")
-   (access-token
-    :initarg :access-token
-    :initform nil
-    :type (or null string)
-    :documentation "OAuth2 access token.")
-   (refresh-token
-    :initarg :refresh-token
-    :initform nil
-    :type (or null string)
-    :documentation "OAuth2 refresh token.")
-   (token-url
-    :initarg :token-url
-    :initform nil
-    :type (or null string)
-    :documentation "OAuth2 token endpoint URL.")
-   (expires-at
-    :initarg :expires-at
-    :initform nil
-    :type (or null number)
-    :documentation "Timestamp when access token expires."))
-  "OAuth2 authentication for CardDAV (future implementation).")
+          ((client-id
+            :initarg :client-id
+            :initform nil
+            :type (or null string)
+            :documentation "OAuth2 client ID.")
+           (client-secret
+            :initarg :client-secret
+            :initform nil
+            :type (or null string)
+            :documentation "OAuth2 client secret.")
+           (access-token
+            :initarg :access-token
+            :initform nil
+            :type (or null string)
+            :documentation "OAuth2 access token.")
+           (refresh-token
+            :initarg :refresh-token
+            :initform nil
+            :type (or null string)
+            :documentation "OAuth2 refresh token.")
+           (token-url
+            :initarg :token-url
+            :initform nil
+            :type (or null string)
+            :documentation "OAuth2 token endpoint URL.")
+           (expires-at
+            :initarg :expires-at
+            :initform nil
+            :type (or null number)
+            :documentation "Timestamp when access token expires."))
+          "OAuth2 authentication for CardDAV (future implementation).")
 
 (cl-defmethod initialize-instance :after ((auth ecard-carddav-auth-oauth2) &rest _slots)
   "Initialize OAuth2 Auth object AUTH."
@@ -316,8 +316,8 @@ PORT defaults to 443 (HTTPS)."
              (user (plist-get entry :user))
              (secret (plist-get entry :secret))
              (password (if (functionp secret)
-                          (funcall secret)
-                        secret)))
+                           (funcall secret)
+                         secret)))
         (when (and user password)
           (ecard-carddav-auth-basic-create
            :username user

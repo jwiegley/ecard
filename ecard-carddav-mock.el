@@ -66,93 +66,93 @@
 ;;; EIEIO Classes
 
 (defclass ecard-carddav-mock-server ()
-  ((base-url
-    :initarg :base-url
-    :initform "https://mock.example.com"
-    :type string
-    :documentation "Base URL for this mock server.")
-   (principal-path
-    :initarg :principal-path
-    :initform "/principals/user/"
-    :type string
-    :documentation "Principal path for current user.")
-   (addressbook-home-path
-    :initarg :addressbook-home-path
-    :initform "/addressbooks/user/"
-    :type string
-    :documentation "Address book home path.")
-   (addressbooks
-    :initarg :addressbooks
-    :initform (make-hash-table :test 'equal)
-    :type hash-table
-    :documentation "Hash table: path -> mock-addressbook object.")
-   (next-etag
-    :initarg :next-etag
-    :initform 1
-    :type integer
-    :documentation "Next ETag number to assign.")
-   (next-sync-token
-    :initarg :next-sync-token
-    :initform 1
-    :type integer
-    :documentation "Next sync-token number to assign."))
-  "Mock CardDAV server for testing.")
+          ((base-url
+            :initarg :base-url
+            :initform "https://mock.example.com"
+            :type string
+            :documentation "Base URL for this mock server.")
+           (principal-path
+            :initarg :principal-path
+            :initform "/principals/user/"
+            :type string
+            :documentation "Principal path for current user.")
+           (addressbook-home-path
+            :initarg :addressbook-home-path
+            :initform "/addressbooks/user/"
+            :type string
+            :documentation "Address book home path.")
+           (addressbooks
+            :initarg :addressbooks
+            :initform (make-hash-table :test 'equal)
+            :type hash-table
+            :documentation "Hash table: path -> mock-addressbook object.")
+           (next-etag
+            :initarg :next-etag
+            :initform 1
+            :type integer
+            :documentation "Next ETag number to assign.")
+           (next-sync-token
+            :initarg :next-sync-token
+            :initform 1
+            :type integer
+            :documentation "Next sync-token number to assign."))
+          "Mock CardDAV server for testing.")
 
 (defclass ecard-carddav-mock-addressbook ()
-  ((path
-    :initarg :path
-    :initform nil
-    :type (or null string)
-    :documentation "Path to this address book.")
-   (display-name
-    :initarg :display-name
-    :initform "Mock Address Book"
-    :type string
-    :documentation "Display name for this address book.")
-   (description
-    :initarg :description
-    :initform "Mock address book for testing"
-    :type string
-    :documentation "Description of this address book.")
-   (ctag
-    :initarg :ctag
-    :initform "1"
-    :type string
-    :documentation "Current CTag.")
-   (sync-token
-    :initarg :sync-token
-    :initform "1"
-    :type string
-    :documentation "Current sync-token.")
-   (resources
-    :initarg :resources
-    :initform (make-hash-table :test 'equal)
-    :type hash-table
-    :documentation "Hash table: path -> mock-resource object."))
-  "Mock address book collection.")
+          ((path
+            :initarg :path
+            :initform nil
+            :type (or null string)
+            :documentation "Path to this address book.")
+           (display-name
+            :initarg :display-name
+            :initform "Mock Address Book"
+            :type string
+            :documentation "Display name for this address book.")
+           (description
+            :initarg :description
+            :initform "Mock address book for testing"
+            :type string
+            :documentation "Description of this address book.")
+           (ctag
+            :initarg :ctag
+            :initform "1"
+            :type string
+            :documentation "Current CTag.")
+           (sync-token
+            :initarg :sync-token
+            :initform "1"
+            :type string
+            :documentation "Current sync-token.")
+           (resources
+            :initarg :resources
+            :initform (make-hash-table :test 'equal)
+            :type hash-table
+            :documentation "Hash table: path -> mock-resource object."))
+          "Mock address book collection.")
 
 (defclass ecard-carddav-mock-resource ()
-  ((path
-    :initarg :path
-    :initform nil
-    :type (or null string)
-    :documentation "Path to this resource.")
-   (etag
-    :initarg :etag
-    :initform nil
-    :type (or null string)
-    :documentation "Current ETag.")
-   (ecard
-    :initarg :ecard
-    :initform nil
-    ;; Note: :type removed because ecard is now a cl-defstruct, not an EIEIO class
-    :documentation "vCard object.")
-   (ecard-data
-    :initarg :ecard-data
-    :initform nil
-    :type (or null string)
-    :documentation "Serialized vCard data."))
-  "Mock vCard resource.")
+          ((path
+            :initarg :path
+            :initform nil
+            :type (or null string)
+            :documentation "Path to this resource.")
+           (etag
+            :initarg :etag
+            :initform nil
+            :type (or null string)
+            :documentation "Current ETag.")
+           (ecard
+            :initarg :ecard
+            :initform nil
+            ;; Note: :type removed because ecard is now a cl-defstruct, not an EIEIO class
+            :documentation "vCard object.")
+           (ecard-data
+            :initarg :ecard-data
+            :initform nil
+            :type (or null string)
+            :documentation "Serialized vCard data."))
+          "Mock vCard resource.")
 
 ;;; Global state
 
@@ -268,7 +268,7 @@ Returns parsed XML s-expression."
                     "/.well-known/carddav"
                     (ecard-carddav-mock--make-propstat
                      `((current-user-principal nil
-                        (href nil ,principal-url)))))))
+                                               (href nil ,principal-url)))))))
     (list :status 207
           :headers '(("Content-Type" . "application/xml; charset=utf-8"))
           :body (ecard-carddav-mock--make-multistatus (list response)))))
@@ -283,7 +283,7 @@ Returns parsed XML s-expression."
                     principal-url
                     (ecard-carddav-mock--make-propstat
                      `((C:addressbook-home-set nil
-                        (href nil ,home-url)))))))
+                                               (href nil ,home-url)))))))
     (list :status 207
           :headers '(("Content-Type" . "application/xml; charset=utf-8"))
           :body (ecard-carddav-mock--make-multistatus (list response)))))
@@ -333,15 +333,15 @@ Returns parsed XML s-expression."
     (if (string= depth "0")
         ;; Just the address book itself
         (let ((response (ecard-carddav-mock--make-response
-                        (concat base-url path)
-                        (ecard-carddav-mock--make-propstat
-                         `((resourcetype nil
-                             (collection nil)
-                             (C:addressbook nil))
-                           (displayname nil ,(oref addressbook display-name))
-                           (CS:getctag nil ,(oref addressbook ctag))
-                           (sync-token nil ,(format "http://mock.example.com/ns/sync/%s"
-                                                   (oref addressbook sync-token))))))))
+                         (concat base-url path)
+                         (ecard-carddav-mock--make-propstat
+                          `((resourcetype nil
+                                          (collection nil)
+                                          (C:addressbook nil))
+                            (displayname nil ,(oref addressbook display-name))
+                            (CS:getctag nil ,(oref addressbook ctag))
+                            (sync-token nil ,(format "http://mock.example.com/ns/sync/%s"
+                                                     (oref addressbook sync-token))))))))
           (list :status 207
                 :headers '(("Content-Type" . "application/xml; charset=utf-8"))
                 :body (ecard-carddav-mock--make-multistatus response)))
@@ -351,12 +351,12 @@ Returns parsed XML s-expression."
       ;; for the collection itself, not just individual resources. This ensures
       ;; that ecard-carddav-list-resources properly filters out the collection.
       (let ((responses (list (ecard-carddav-mock--make-response
-                             (concat base-url path)
-                             (ecard-carddav-mock--make-propstat
-                              `((resourcetype nil
-                                  (collection nil)
-                                  (C:addressbook nil))
-                                (getcontenttype nil "text/vcard; charset=utf-8")))))))
+                              (concat base-url path)
+                              (ecard-carddav-mock--make-propstat
+                               `((resourcetype nil
+                                               (collection nil)
+                                               (C:addressbook nil))
+                                 (getcontenttype nil "text/vcard; charset=utf-8")))))))
         (maphash (lambda (resource-path resource)
                    (push (ecard-carddav-mock--make-response
                           (concat base-url resource-path)
@@ -379,7 +379,7 @@ Returns parsed XML s-expression."
       (if resource
           (list :status 200
                 :headers `(("Content-Type" . "text/vcard; charset=utf-8")
-                          ("ETag" . ,(format "\"%s\"" (oref resource etag))))
+                           ("ETag" . ,(format "\"%s\"" (oref resource etag))))
                 :body (oref resource ecard-data))
         (list :status 404
               :headers '()
@@ -626,18 +626,18 @@ Returns parsed XML s-expression."
 
         ;; Insert HTTP response
         (insert (format "HTTP/1.1 %d %s\r\n"
-                       status
-                       (pcase status
-                         (200 "OK")
-                         (201 "Created")
-                         (204 "No Content")
-                         (207 "Multi-Status")
-                         (400 "Bad Request")
-                         (404 "Not Found")
-                         (405 "Method Not Allowed")
-                         (412 "Precondition Failed")
-                         (500 "Internal Server Error")
-                         (_ "Unknown"))))
+                        status
+                        (pcase status
+                          (200 "OK")
+                          (201 "Created")
+                          (204 "No Content")
+                          (207 "Multi-Status")
+                          (400 "Bad Request")
+                          (404 "Not Found")
+                          (405 "Method Not Allowed")
+                          (412 "Precondition Failed")
+                          (500 "Internal Server Error")
+                          (_ "Unknown"))))
 
         ;; Insert headers
         (dolist (header headers)

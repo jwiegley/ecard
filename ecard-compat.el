@@ -321,8 +321,8 @@ Returns nil for lines that don't match property format (including binary data)."
            (value (match-string 4 line))
            (params (ecard-compat--parse-legacy-params params-string version))
            (converted (if (eq version 'v21)
-                         (ecard-compat--convert-params-21 params prop-name)
-                       (ecard-compat--convert-params-30 params prop-name))))
+                          (ecard-compat--convert-params-21 params prop-name)
+                        (ecard-compat--convert-params-30 params prop-name))))
 
       (list :group group
             :name prop-name
@@ -369,10 +369,10 @@ does not mandate property order, and serialization maintains data fidelity."
     (when (and (ecard--slot-exists-p vc slot)
                (not (eq slot 'version)))  ; Don't override VERSION
       (let* ((prop (ecard-property
-                   :name name
-                   :value value
-                   :parameters params
-                   :group group))
+                    :name name
+                    :value value
+                    :parameters params
+                    :group group))
              (existing (ecard--slot-value vc slot)))
 
         ;; Check cardinality constraints
@@ -438,8 +438,8 @@ Returns processed value (string or list)."
     (when (member name '("N" "ADR" "ORG" "GENDER"))
       (setq processed-value
             (mapcar (lambda (s)
-                     (ecard--unescape-value s))
-                   (split-string processed-value ";" nil))))
+                      (ecard--unescape-value s))
+                    (split-string processed-value ";" nil))))
 
     ;; Parse text-list values for CATEGORIES, NICKNAME (comma-separated)
     (when (member name '("CATEGORIES" "NICKNAME"))
@@ -476,7 +476,7 @@ Returns ecard object."
         (when (ecard-compat--should-include-property-p name)
           ;; Process value (decode, convert charset, etc.)
           (setq value (ecard-compat--process-property-value
-                      name value params encoding charset version))
+                       name value params encoding charset version))
 
           ;; Store FN for later
           (when (string= name "FN")
@@ -484,9 +484,9 @@ Returns ecard object."
 
           ;; Add to converted properties
           (push (list :name name
-                     :value value
-                     :params params
-                     :group group)
+                      :value value
+                      :params params
+                      :group group)
                 converted-props))))
 
     ;; Create vCard 4.0 object
@@ -558,7 +558,7 @@ to trying the 3.0 legacy parser which is more lenient with malformed data."
                   (error-message-string err))
          (ecard-compat--parse-legacy-ecard text 'v40))))
      (t (signal 'ecard-compat-version-error
-               '("Unknown or missing vCard VERSION"))))))
+                '("Unknown or missing vCard VERSION"))))))
 
 ;;;###autoload
 (defun ecard-compat-parse-multiple (text)
@@ -825,9 +825,9 @@ Example:
 
     ;; Serialize all properties in defined order (same as 4.0)
     (dolist (slot '(source kind xml fn n nickname photo bday anniversary gender
-                    adr tel email impp lang geo tz title role logo org member related
-                    categories note prodid rev sound uid clientpidmap url
-                    key fburl caladruri caluri))
+                           adr tel email impp lang geo tz title role logo org member related
+                           categories note prodid rev sound uid clientpidmap url
+                           key fburl caladruri caluri))
       (let ((props (ecard--slot-value vc slot)))
         (when props
           (setq lines (append lines (ecard-compat--serialize-properties-30 props))))))

@@ -83,7 +83,7 @@
                :email "john@example.com"
                :tel "+1-555-1234"
                :uid (format "test-%s@example.com"
-                           (downcase (replace-regexp-in-string " " "-" fn))))))
+                            (downcase (replace-regexp-in-string " " "-" fn))))))
     (when note
       (ecard-add-property card 'note note))
     card))
@@ -106,10 +106,10 @@
   (unwind-protect
       (let* ((call-count 0)
              (result (ecard-carddav-map-resources
-                     ecard-carddav-map-test--addressbook
-                     (lambda (_resource)
-                       (setq call-count (1+ call-count))
-                       nil))))
+                      ecard-carddav-map-test--addressbook
+                      (lambda (_resource)
+                        (setq call-count (1+ call-count))
+                        nil))))
         (should (= call-count 0))
         (should (= (plist-get result :total) 0))
         (should (= (plist-get result :processed) 0))
@@ -127,10 +127,10 @@
         (ecard-carddav-map-test--populate-addressbook 5)
         (let* ((call-count 0)
                (result (ecard-carddav-map-resources
-                       ecard-carddav-map-test--addressbook
-                       (lambda (_resource)
-                         (setq call-count (1+ call-count))
-                         nil))))  ; Return nil - no modification
+                        ecard-carddav-map-test--addressbook
+                        (lambda (_resource)
+                          (setq call-count (1+ call-count))
+                          nil))))  ; Return nil - no modification
           (should (= call-count 5))
           (should (= (plist-get result :total) 5))
           (should (= (plist-get result :processed) 5))
@@ -146,11 +146,11 @@
       (progn
         (ecard-carddav-map-test--populate-addressbook 3)
         (let ((result (ecard-carddav-map-resources
-                      ecard-carddav-map-test--addressbook
-                      (lambda (resource)
-                        (let ((ecard (oref resource ecard)))
-                          (ecard-add-property ecard 'note "Test note")
-                          t)))))  ; Return t - modified
+                       ecard-carddav-map-test--addressbook
+                       (lambda (resource)
+                         (let ((ecard (oref resource ecard)))
+                           (ecard-add-property ecard 'note "Test note")
+                           t)))))  ; Return t - modified
           (should (= (plist-get result :total) 3))
           (should (= (plist-get result :processed) 3))
           (should (= (plist-get result :modified) 3))
@@ -159,11 +159,11 @@
 
           ;; Verify modifications were saved
           (let ((resources (ecard-carddav-list-resources
-                           ecard-carddav-map-test--addressbook)))
+                            ecard-carddav-map-test--addressbook)))
             (dolist (resource-info resources)
               (let ((resource (ecard-carddav-get-resource
-                              ecard-carddav-map-test--addressbook
-                              (oref resource-info path))))
+                               ecard-carddav-map-test--addressbook
+                               (oref resource-info path))))
                 (should (oref (oref resource ecard) note)))))))
     (ecard-carddav-map-test--teardown)))
 
@@ -174,16 +174,16 @@
       (progn
         (ecard-carddav-map-test--populate-addressbook 6)
         (let ((result (ecard-carddav-map-resources
-                      ecard-carddav-map-test--addressbook
-                      (lambda (resource)
-                        (let* ((ecard (oref resource ecard))
-                               (fn (ecard-get-property-value ecard 'fn)))
-                          ;; Only modify even-numbered contacts
-                          (when (string-match "Contact \\([0-9]+\\)" fn)
-                            (let ((num (string-to-number (match-string 1 fn))))
-                              (when (zerop (mod num 2))
-                                (ecard-add-property ecard 'note "Even contact")
-                                t))))))))
+                       ecard-carddav-map-test--addressbook
+                       (lambda (resource)
+                         (let* ((ecard (oref resource ecard))
+                                (fn (ecard-get-property-value ecard 'fn)))
+                           ;; Only modify even-numbered contacts
+                           (when (string-match "Contact \\([0-9]+\\)" fn)
+                             (let ((num (string-to-number (match-string 1 fn))))
+                               (when (zerop (mod num 2))
+                                 (ecard-add-property ecard 'note "Even contact")
+                                 t))))))))
           (should (= (plist-get result :total) 6))
           (should (= (plist-get result :processed) 6))
           (should (= (plist-get result :modified) 3))  ; Contacts 2, 4, 6
@@ -198,15 +198,15 @@
       (progn
         (ecard-carddav-map-test--populate-addressbook 4)
         (let ((result (ecard-carddav-map-resources
-                      ecard-carddav-map-test--addressbook
-                      (lambda (resource)
-                        (let* ((ecard (oref resource ecard))
-                               (fn (ecard-get-property-value ecard 'fn)))
-                          ;; Delete contacts with odd numbers
-                          (when (string-match "Contact \\([0-9]+\\)" fn)
-                            (let ((num (string-to-number (match-string 1 fn))))
-                              (when (not (zerop (mod num 2)))
-                                :delete))))))))
+                       ecard-carddav-map-test--addressbook
+                       (lambda (resource)
+                         (let* ((ecard (oref resource ecard))
+                                (fn (ecard-get-property-value ecard 'fn)))
+                           ;; Delete contacts with odd numbers
+                           (when (string-match "Contact \\([0-9]+\\)" fn)
+                             (let ((num (string-to-number (match-string 1 fn))))
+                               (when (not (zerop (mod num 2)))
+                                 :delete))))))))
           (should (= (plist-get result :total) 4))
           (should (= (plist-get result :processed) 4))
           (should (= (plist-get result :modified) 0))
@@ -215,7 +215,7 @@
 
           ;; Verify deletions
           (let ((resources (ecard-carddav-list-resources
-                           ecard-carddav-map-test--addressbook)))
+                            ecard-carddav-map-test--addressbook)))
             (should (= (length resources) 2))
             ;; Remaining should be contacts 2 and 4
             (let ((paths (mapcar (lambda (r) (oref r path)) resources)))
@@ -230,15 +230,15 @@
       (progn
         (ecard-carddav-map-test--populate-addressbook 5)
         (let ((result (ecard-carddav-map-resources
-                      ecard-carddav-map-test--addressbook
-                      (lambda (resource)
-                        (let* ((ecard (oref resource ecard))
-                               (fn (ecard-get-property-value ecard 'fn)))
-                          ;; Skip first 3 contacts
-                          (if (string-match "Contact [123]" fn)
-                              :skip
-                            (ecard-add-property ecard 'note "Processed")
-                            t))))))
+                       ecard-carddav-map-test--addressbook
+                       (lambda (resource)
+                         (let* ((ecard (oref resource ecard))
+                                (fn (ecard-get-property-value ecard 'fn)))
+                           ;; Skip first 3 contacts
+                           (if (string-match "Contact [123]" fn)
+                               :skip
+                             (ecard-add-property ecard 'note "Processed")
+                             t))))))
           (should (= (plist-get result :total) 5))
           (should (= (plist-get result :processed) 5))
           (should (= (plist-get result :modified) 2))  ; Contacts 4, 5
@@ -255,10 +255,10 @@
       (progn
         (ecard-carddav-map-test--populate-addressbook 3)
         (let ((result (ecard-carddav-map-resources
-                      ecard-carddav-map-test--addressbook
-                      (lambda (_resource)
-                        ;; Claim modification but don't actually modify
-                        t))))
+                       ecard-carddav-map-test--addressbook
+                       (lambda (_resource)
+                         ;; Claim modification but don't actually modify
+                         t))))
           (should (= (plist-get result :total) 3))
           (should (= (plist-get result :processed) 3))
           ;; Should be 0 because change detection detects no actual change
@@ -273,12 +273,12 @@
       (progn
         (ecard-carddav-map-test--populate-addressbook 2)
         (let ((result (ecard-carddav-map-resources
-                      ecard-carddav-map-test--addressbook
-                      (lambda (resource)
-                        (let ((ecard (oref resource ecard)))
-                          ;; Make actual modification
-                          (ecard-add-property ecard 'note "Modified")
-                          t)))))
+                       ecard-carddav-map-test--addressbook
+                       (lambda (resource)
+                         (let ((ecard (oref resource ecard)))
+                           ;; Make actual modification
+                           (ecard-add-property ecard 'note "Modified")
+                           t)))))
           (should (= (plist-get result :modified) 2))
           (should (= (plist-get result :skipped) 0))))
     (ecard-carddav-map-test--teardown)))
@@ -293,14 +293,14 @@
         (ecard-carddav-map-test--populate-addressbook 3)
         (let* ((processed-paths nil)
                (result (ecard-carddav-map-resources
-                       ecard-carddav-map-test--addressbook
-                       (lambda (resource)
-                         (let ((path (oref resource path)))
-                           (push path processed-paths)
-                           ;; Throw error on second resource processed
-                           (when (= (length processed-paths) 2)
-                             (error "Test error"))
-                           nil)))))
+                        ecard-carddav-map-test--addressbook
+                        (lambda (resource)
+                          (let ((path (oref resource path)))
+                            (push path processed-paths)
+                            ;; Throw error on second resource processed
+                            (when (= (length processed-paths) 2)
+                              (error "Test error"))
+                            nil)))))
           (should (= (plist-get result :total) 3))
           (should (= (plist-get result :processed) 3))
           ;; Should have at least 1 error (the one we threw)
@@ -308,8 +308,8 @@
           (should (>= (length (plist-get result :errors)) 1))
           ;; Verify at least one error has the right type
           (should (cl-some (lambda (err)
-                            (eq (plist-get err :type) 'transform-error))
-                          (plist-get result :errors)))))
+                             (eq (plist-get err :type) 'transform-error))
+                           (plist-get result :errors)))))
     (ecard-carddav-map-test--teardown)))
 
 (ert-deftest ecard-carddav-map-test-etag-conflict-skip ()
@@ -322,15 +322,15 @@
         ;; Simulate concurrent modification by updating the resource
         ;; after we've fetched it
         (let ((result (ecard-carddav-map-resources
-                      ecard-carddav-map-test--addressbook
-                      (lambda (resource)
-                        (let ((ecard (oref resource ecard)))
-                          ;; Simulate someone else updating the resource
-                          ;; by invalidating the ETag
-                          (oset resource etag "invalid-etag")
-                          (ecard-add-property ecard 'note "Conflict test")
-                          t))
-                      :on-conflict :skip)))
+                       ecard-carddav-map-test--addressbook
+                       (lambda (resource)
+                         (let ((ecard (oref resource ecard)))
+                           ;; Simulate someone else updating the resource
+                           ;; by invalidating the ETag
+                           (oset resource etag "invalid-etag")
+                           (ecard-add-property ecard 'note "Conflict test")
+                           t))
+                       :on-conflict :skip)))
           (should (= (plist-get result :total) 1))
           (should (= (plist-get result :processed) 1))
           (should (= (plist-get result :modified) 0))
@@ -354,13 +354,13 @@
 
         ;; Map with force conflict resolution
         (let ((result (ecard-carddav-map-resources
-                      ecard-carddav-map-test--addressbook
-                      (lambda (resource)
-                        ;; Modify the contact
-                        (let ((ecard (oref resource ecard)))
-                          (ecard-add-property ecard 'note "Force update")
-                          t))
-                      :on-conflict :force)))
+                       ecard-carddav-map-test--addressbook
+                       (lambda (resource)
+                         ;; Modify the contact
+                         (let ((ecard (oref resource ecard)))
+                           (ecard-add-property ecard 'note "Force update")
+                           t))
+                       :on-conflict :force)))
           (should (= (plist-get result :total) 1))
           (should (= (plist-get result :processed) 1))
           (should (= (plist-get result :modified) 1))))
@@ -374,12 +374,12 @@
         (ecard-carddav-map-test--populate-addressbook 1)
 
         (let ((result (ecard-carddav-map-resources
-                      ecard-carddav-map-test--addressbook
-                      (lambda (resource)
-                        ;; Invalidate ETag before delete
-                        (oset resource etag "invalid-etag")
-                        :delete)
-                      :on-conflict :skip)))
+                       ecard-carddav-map-test--addressbook
+                       (lambda (resource)
+                         ;; Invalidate ETag before delete
+                         (oset resource etag "invalid-etag")
+                         :delete)
+                       :on-conflict :skip)))
           (should (= (plist-get result :total) 1))
           (should (= (plist-get result :processed) 1))
           (should (= (plist-get result :deleted) 0))
@@ -398,10 +398,10 @@
          (ecard-carddav-map-test--create-test-ecard "Test User"))
 
         (let ((result (ecard-carddav-map-resources
-                      ecard-carddav-map-test--addressbook
-                      (lambda (_resource)
-                        :delete)
-                      :on-conflict :force)))
+                       ecard-carddav-map-test--addressbook
+                       (lambda (_resource)
+                         :delete)
+                       :on-conflict :force)))
           (should (= (plist-get result :total) 1))
           (should (= (plist-get result :processed) 1))
           (should (= (plist-get result :deleted) 1))
@@ -483,12 +483,12 @@
         (ecard-carddav-map-test--populate-addressbook 20)
 
         (let ((result (ecard-carddav-map-resources
-                      ecard-carddav-map-test--addressbook
-                      (lambda (resource)
-                        (let ((ecard (oref resource ecard)))
-                          (ecard-add-property ecard 'note "Batch test")
-                          t))
-                      :batch-size 5)))  ; Process in batches of 5
+                       ecard-carddav-map-test--addressbook
+                       (lambda (resource)
+                         (let ((ecard (oref resource ecard)))
+                           (ecard-add-property ecard 'note "Batch test")
+                           t))
+                       :batch-size 5)))  ; Process in batches of 5
           (should (= (plist-get result :total) 20))
           (should (= (plist-get result :processed) 20))
           (should (= (plist-get result :modified) 20))))
@@ -502,16 +502,16 @@
         (ecard-carddav-map-test--populate-addressbook 50)
 
         (let ((result (ecard-carddav-map-resources
-                      ecard-carddav-map-test--addressbook
-                      (lambda (resource)
-                        ;; Modify every 5th contact
-                        (let* ((ecard (oref resource ecard))
-                               (fn (ecard-get-property-value ecard 'fn)))
-                          (when (string-match "Contact \\([0-9]+\\)" fn)
-                            (let ((num (string-to-number (match-string 1 fn))))
-                              (when (zerop (mod num 5))
-                                (ecard-add-property ecard 'note "Large test")
-                                t))))))))
+                       ecard-carddav-map-test--addressbook
+                       (lambda (resource)
+                         ;; Modify every 5th contact
+                         (let* ((ecard (oref resource ecard))
+                                (fn (ecard-get-property-value ecard 'fn)))
+                           (when (string-match "Contact \\([0-9]+\\)" fn)
+                             (let ((num (string-to-number (match-string 1 fn))))
+                               (when (zerop (mod num 5))
+                                 (ecard-add-property ecard 'note "Large test")
+                                 t))))))))
           (should (= (plist-get result :total) 50))
           (should (= (plist-get result :processed) 50))
           (should (= (plist-get result :modified) 10))))  ; 10 multiples of 5
@@ -527,15 +527,15 @@
         (ecard-carddav-map-test--populate-addressbook 10)
 
         (let ((result (ecard-carddav-map-resources
-                      ecard-carddav-map-test--addressbook
-                      (lambda (resource)
-                        (let ((ecard (oref resource ecard)))
-                          (ecard-add-property ecard 'note "Filtered")
-                          t))
-                      :filter-fn
-                      (lambda (path)
-                        ;; Only process contacts 1-5
-                        (string-match "contact[1-5]\\.vcf$" path)))))
+                       ecard-carddav-map-test--addressbook
+                       (lambda (resource)
+                         (let ((ecard (oref resource ecard)))
+                           (ecard-add-property ecard 'note "Filtered")
+                           t))
+                       :filter-fn
+                       (lambda (path)
+                         ;; Only process contacts 1-5
+                         (string-match "contact[1-5]\\.vcf$" path)))))
           (should (= (plist-get result :total) 5))  ; Filtered to 5
           (should (= (plist-get result :processed) 5))
           (should (= (plist-get result :modified) 5))))
@@ -551,21 +551,21 @@
         (ecard-carddav-map-test--populate-addressbook 12)
 
         (let ((result (ecard-carddav-map-resources
-                      ecard-carddav-map-test--addressbook
-                      (lambda (resource)
-                        (let* ((ecard (oref resource ecard))
-                               (fn (ecard-get-property-value ecard 'fn))
-                               (num (when (string-match "Contact \\([0-9]+\\)" fn)
-                                      (string-to-number (match-string 1 fn)))))
-                          (cond
-                           ;; Delete multiples of 3
-                           ((zerop (mod num 3)) :delete)
-                           ;; Skip multiples of 2 (but not 3)
-                           ((zerop (mod num 2)) :skip)
-                           ;; Modify others (1, 5, 7, 11)
-                           (t
-                            (ecard-add-property ecard 'note "Modified")
-                            t)))))))
+                       ecard-carddav-map-test--addressbook
+                       (lambda (resource)
+                         (let* ((ecard (oref resource ecard))
+                                (fn (ecard-get-property-value ecard 'fn))
+                                (num (when (string-match "Contact \\([0-9]+\\)" fn)
+                                       (string-to-number (match-string 1 fn)))))
+                           (cond
+                            ;; Delete multiples of 3
+                            ((zerop (mod num 3)) :delete)
+                            ;; Skip multiples of 2 (but not 3)
+                            ((zerop (mod num 2)) :skip)
+                            ;; Modify others (1, 5, 7, 11)
+                            (t
+                             (ecard-add-property ecard 'note "Modified")
+                             t)))))))
           (should (= (plist-get result :total) 12))
           (should (= (plist-get result :processed) 12))
           (should (= (plist-get result :modified) 4))   ; 1, 5, 7, 11
@@ -584,22 +584,22 @@
 
         ;; First run - add note
         (let ((result1 (ecard-carddav-map-resources
-                       ecard-carddav-map-test--addressbook
-                       (lambda (resource)
-                         (let ((ecard (oref resource ecard)))
-                           (unless (ecard-note ecard)
-                             (ecard-add-property ecard 'note "First run")
-                             t))))))
+                        ecard-carddav-map-test--addressbook
+                        (lambda (resource)
+                          (let ((ecard (oref resource ecard)))
+                            (unless (ecard-note ecard)
+                              (ecard-add-property ecard 'note "First run")
+                              t))))))
           (should (= (plist-get result1 :modified) 5))
 
           ;; Second run - should not modify anything
           (let ((result2 (ecard-carddav-map-resources
-                         ecard-carddav-map-test--addressbook
-                         (lambda (resource)
-                           (let ((ecard (oref resource ecard)))
-                             (unless (ecard-note ecard)
-                               (ecard-add-property ecard 'note "First run")
-                               t))))))
+                          ecard-carddav-map-test--addressbook
+                          (lambda (resource)
+                            (let ((ecard (oref resource ecard)))
+                              (unless (ecard-note ecard)
+                                (ecard-add-property ecard 'note "First run")
+                                t))))))
             ;; Second run should have 0 modifications because notes already exist
             (should (= (plist-get result2 :modified) 0))
             ;; No resources are explicitly skipped - function returns nil
@@ -624,17 +624,17 @@
 
         ;; Second transformation - add title
         (let ((result (ecard-carddav-map-resources
-                      ecard-carddav-map-test--addressbook
-                      (lambda (resource)
-                        (let ((ecard (oref resource ecard)))
-                          (ecard-add-property ecard 'title "Manager")
-                          t)))))
+                       ecard-carddav-map-test--addressbook
+                       (lambda (resource)
+                         (let ((ecard (oref resource ecard)))
+                           (ecard-add-property ecard 'title "Manager")
+                           t)))))
           (should (= (plist-get result :modified) 3))
 
           ;; Verify both properties exist
           (let ((test-resource (ecard-carddav-get-resource
-                               ecard-carddav-map-test--addressbook
-                               "/addressbooks/user/contacts/contact1.vcf")))
+                                ecard-carddav-map-test--addressbook
+                                "/addressbooks/user/contacts/contact1.vcf")))
             (should (oref (oref test-resource ecard) note))
             (should (oref (oref test-resource ecard) title)))))
     (ecard-carddav-map-test--teardown)))
@@ -658,24 +658,24 @@
 
         ;; Add UID to contacts that don't have one
         (let ((result (ecard-carddav-map-resources
-                      ecard-carddav-map-test--addressbook
-                      (lambda (resource)
-                        (let ((ecard (oref resource ecard)))
-                          (unless (ecard-uid ecard)
-                            (ecard-add-property ecard 'uid
-                                               (format "generated-%s"
-                                                      (md5 (ecard-get-property-value ecard 'fn))))
-                            t))))))
+                       ecard-carddav-map-test--addressbook
+                       (lambda (resource)
+                         (let ((ecard (oref resource ecard)))
+                           (unless (ecard-uid ecard)
+                             (ecard-add-property ecard 'uid
+                                                 (format "generated-%s"
+                                                         (md5 (ecard-get-property-value ecard 'fn))))
+                             t))))))
           (should (= (plist-get result :total) 5))
           (should (= (plist-get result :modified) 2))  ; 2 even-numbered contacts
 
           ;; Verify all contacts now have UID
           (let ((resources (ecard-carddav-list-resources
-                           ecard-carddav-map-test--addressbook)))
+                            ecard-carddav-map-test--addressbook)))
             (dolist (resource-info resources)
               (let ((resource (ecard-carddav-get-resource
-                              ecard-carddav-map-test--addressbook
-                              (oref resource-info path))))
+                               ecard-carddav-map-test--addressbook
+                               (oref resource-info path))))
                 (should (oref (oref resource ecard) uid)))))))
     (ecard-carddav-map-test--teardown)))
 
@@ -688,8 +688,8 @@
         (let ((phones '("+1-555-1234" "555-5678" "(555) 9012" "555.3456")))
           (dotimes (i 4)
             (let ((card (ecard-create
-                        :fn (format "Contact %d" (1+ i))
-                        :tel (nth i phones))))
+                         :fn (format "Contact %d" (1+ i))
+                         :tel (nth i phones))))
               (ecard-carddav-put-ecard
                ecard-carddav-map-test--addressbook
                (format "/addressbooks/user/contacts/contact%d.vcf" (1+ i))
@@ -697,22 +697,22 @@
 
         ;; Normalize all phone numbers
         (let ((result (ecard-carddav-map-resources
-                      ecard-carddav-map-test--addressbook
-                      (lambda (resource)
-                        (let ((ecard (oref resource ecard)))
-                          (when-let ((tels (ecard-tel ecard)))
-                            (dolist (tel tels)
-                              ;; Simple normalization: remove all non-digits
-                              (let ((value (oref tel value)))
-                                (oset tel value
-                                     (replace-regexp-in-string "[^0-9]" "" value))))
-                            t))))))
+                       ecard-carddav-map-test--addressbook
+                       (lambda (resource)
+                         (let ((ecard (oref resource ecard)))
+                           (when-let ((tels (ecard-tel ecard)))
+                             (dolist (tel tels)
+                               ;; Simple normalization: remove all non-digits
+                               (let ((value (oref tel value)))
+                                 (oset tel value
+                                       (replace-regexp-in-string "[^0-9]" "" value))))
+                             t))))))
           (should (= (plist-get result :modified) 4))
 
           ;; Verify normalization
           (let ((resource (ecard-carddav-get-resource
-                          ecard-carddav-map-test--addressbook
-                          "/addressbooks/user/contacts/contact1.vcf")))
+                           ecard-carddav-map-test--addressbook
+                           "/addressbooks/user/contacts/contact1.vcf")))
             (let* ((ecard (oref resource ecard))
                    (tel (car (ecard-tel ecard))))
               (should (string= (oref tel value) "15551234"))))))
@@ -727,8 +727,8 @@
         (dotimes (i 6)
           (let* ((name (format "Contact %d" (1+ i)))
                  (email (if (< i 3)
-                           "duplicate@example.com"
-                         (format "unique%d@example.com" i)))
+                            "duplicate@example.com"
+                          (format "unique%d@example.com" i)))
                  (card (ecard-create :fn name :email email)))
             (ecard-carddav-put-ecard
              ecard-carddav-map-test--addressbook
@@ -737,19 +737,19 @@
 
         ;; List resources in path order to ensure consistent processing
         (let ((all-resources (ecard-carddav-list-resources
-                             ecard-carddav-map-test--addressbook)))
+                              ecard-carddav-map-test--addressbook)))
           ;; Sort by path for deterministic processing
           (setq all-resources (sort all-resources
-                                   (lambda (a b)
-                                     (string< (oref a path) (oref b path)))))
+                                    (lambda (a b)
+                                      (string< (oref a path) (oref b path)))))
 
           ;; Manually process in order
           (let ((seen-emails (make-hash-table :test 'equal))
                 (delete-count 0))
             (dolist (resource-info all-resources)
               (let* ((resource (ecard-carddav-get-resource
-                               ecard-carddav-map-test--addressbook
-                               (oref resource-info path)))
+                                ecard-carddav-map-test--addressbook
+                                (oref resource-info path)))
                      (ecard (oref resource ecard))
                      (email (ecard-get-property-value ecard 'email)))
                 (if (gethash email seen-emails)
@@ -764,7 +764,7 @@
 
             ;; Verify only 4 contacts remain
             (let ((remaining (ecard-carddav-list-resources
-                             ecard-carddav-map-test--addressbook)))
+                              ecard-carddav-map-test--addressbook)))
               (should (= (length remaining) 4))))))
     (ecard-carddav-map-test--teardown)))
 

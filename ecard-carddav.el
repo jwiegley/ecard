@@ -160,42 +160,42 @@ Examples:
 ;;; EIEIO Classes
 
 (defclass ecard-carddav-server ()
-  ((url
-    :initarg :url
-    :initform nil
-    :type (or null string)
-    :documentation "Base URL of CardDAV server (e.g., https://example.com).")
-   (auth
-    :initarg :auth
-    :initform nil
-    :type (or null ecard-carddav-auth function)
-    :documentation "Authentication credentials object or function that returns one.
+          ((url
+            :initarg :url
+            :initform nil
+            :type (or null string)
+            :documentation "Base URL of CardDAV server (e.g., https://example.com).")
+           (auth
+            :initarg :auth
+            :initform nil
+            :type (or null ecard-carddav-auth function)
+            :documentation "Authentication credentials object or function that returns one.
 If a function, it will be called with no arguments whenever authentication
 is needed, allowing for dynamic credential retrieval (e.g., from auth-source,
 password managers, or OAuth token refresh).")
-   (version
-    :initarg :version
-    :initform "4.0"
-    :type string
-    :documentation "vCard version to use for this server (\"3.0\" or \"4.0\").
+           (version
+            :initarg :version
+            :initform "4.0"
+            :type string
+            :documentation "vCard version to use for this server (\"3.0\" or \"4.0\").
 Default is \"4.0\". Set to \"3.0\" for servers that only support vCard 3.0
 like Radicale. This can be overridden per-addressbook.")
-   (principal-url
-    :initarg :principal-url
-    :initform nil
-    :type (or null string)
-    :documentation "Principal URL discovered from server.")
-   (addressbook-home-url
-    :initarg :addressbook-home-url
-    :initform nil
-    :type (or null string)
-    :documentation "Address book home URL for this principal.")
-   (addressbooks
-    :initarg :addressbooks
-    :initform nil
-    :type list
-    :documentation "List of addressbook objects on this server."))
-  "Represents a CardDAV server connection.")
+           (principal-url
+            :initarg :principal-url
+            :initform nil
+            :type (or null string)
+            :documentation "Principal URL discovered from server.")
+           (addressbook-home-url
+            :initarg :addressbook-home-url
+            :initform nil
+            :type (or null string)
+            :documentation "Address book home URL for this principal.")
+           (addressbooks
+            :initarg :addressbooks
+            :initform nil
+            :type list
+            :documentation "List of addressbook objects on this server."))
+          "Represents a CardDAV server connection.")
 
 ;;;###autoload
 (defun ecard-carddav-server-create (&rest args)
@@ -242,87 +242,87 @@ Examples:
     (apply #'ecard-carddav-server args)))
 
 (defclass ecard-carddav-addressbook ()
-  ((server
-    :initarg :server
-    :initform nil
-    :type (or null ecard-carddav-server)
-    :documentation "Reference to parent server object.")
-   (url
-    :initarg :url
-    :initform nil
-    :type (or null string)
-    :documentation "Full URL to this address book resource.")
-   (version
-    :initarg :version
-    :initform nil
-    :type (or null string)
-    :documentation "vCard version to use for this addressbook (\"3.0\" or \"4.0\").
+          ((server
+            :initarg :server
+            :initform nil
+            :type (or null ecard-carddav-server)
+            :documentation "Reference to parent server object.")
+           (url
+            :initarg :url
+            :initform nil
+            :type (or null string)
+            :documentation "Full URL to this address book resource.")
+           (version
+            :initarg :version
+            :initform nil
+            :type (or null string)
+            :documentation "vCard version to use for this addressbook (\"3.0\" or \"4.0\").
 If nil, inherits from server's version. Allows per-addressbook version control.")
-   (display-name
-    :initarg :display-name
-    :initform nil
-    :type (or null string)
-    :documentation "Human-readable name for this address book.")
-   (description
-    :initarg :description
-    :initform nil
-    :type (or null string)
-    :documentation "Description of this address book.")
-   (ctag
-    :initarg :ctag
-    :initform nil
-    :type (or null string)
-    :documentation "Current CTag (change tag) for this address book.")
-   (sync-token
-    :initarg :sync-token
-    :initform nil
-    :type (or null string)
-    :documentation "Current sync-token for incremental sync.")
-   (resources
-    :initarg :resources
-    :initform nil
-    :type list
-    :documentation "List of resource objects in this address book."))
-  "Represents a CardDAV address book collection.")
+           (display-name
+            :initarg :display-name
+            :initform nil
+            :type (or null string)
+            :documentation "Human-readable name for this address book.")
+           (description
+            :initarg :description
+            :initform nil
+            :type (or null string)
+            :documentation "Description of this address book.")
+           (ctag
+            :initarg :ctag
+            :initform nil
+            :type (or null string)
+            :documentation "Current CTag (change tag) for this address book.")
+           (sync-token
+            :initarg :sync-token
+            :initform nil
+            :type (or null string)
+            :documentation "Current sync-token for incremental sync.")
+           (resources
+            :initarg :resources
+            :initform nil
+            :type list
+            :documentation "List of resource objects in this address book."))
+          "Represents a CardDAV address book collection.")
 
 (defclass ecard-carddav-resource ()
-  ((addressbook
-    :initarg :addressbook
-    :initform nil
-    :type (or null ecard-carddav-addressbook)
-    :documentation "Reference to parent address book object.")
-   (url
-    :initarg :url
-    :initform nil
-    :type (or null string)
-    :documentation "Full URL to this vCard resource.")
-   (path
-    :initarg :path
-    :initform nil
-    :type (or null string)
-    :documentation "Path component of URL (relative to addressbook).")
-   (etag
-    :initarg :etag
-    :initform nil
-    :type (or null string)
-    :documentation "ETag for concurrency control.")
-   (ecard
-    :initarg :ecard
-    :initform nil
-    ;; Note: :type removed because ecard is now a cl-defstruct, not an EIEIO class
-    ;; EIEIO type checking doesn't work with structs
-    :documentation "Parsed ecard object (nil if not yet fetched).")
-   (ecard-data
-    :initarg :ecard-data
-    :initform nil
-    :type (or null string)
-    :documentation "Raw vCard text data.")
-   (line-endings
-    :initarg :line-endings
-    :initform 'crlf
-    :type symbol
-    :documentation "Line ending style of original data: `crlf' or `lf'."))
-  "Represents a vCard resource in a CardDAV address book.")
+          ((addressbook
+            :initarg :addressbook
+            :initform nil
+            :type (or null ecard-carddav-addressbook)
+            :documentation "Reference to parent address book object.")
+           (url
+            :initarg :url
+            :initform nil
+            :type (or null string)
+            :documentation "Full URL to this vCard resource.")
+           (path
+            :initarg :path
+            :initform nil
+            :type (or null string)
+            :documentation "Path component of URL (relative to addressbook).")
+           (etag
+            :initarg :etag
+            :initform nil
+            :type (or null string)
+            :documentation "ETag for concurrency control.")
+           (ecard
+            :initarg :ecard
+            :initform nil
+            ;; Note: :type removed because ecard is now a cl-defstruct, not an EIEIO class
+            ;; EIEIO type checking doesn't work with structs
+            :documentation "Parsed ecard object (nil if not yet fetched).")
+           (ecard-data
+            :initarg :ecard-data
+            :initform nil
+            :type (or null string)
+            :documentation "Raw vCard text data.")
+           (line-endings
+            :initarg :line-endings
+            :initform 'crlf
+            :type symbol
+            :documentation "Line ending style of original data: `crlf' or `lf'."))
+          "Represents a vCard resource in a CardDAV address book.")
 
 ;;; XML namespace constants
 
@@ -396,9 +396,9 @@ PROPS is list of (name . namespace) pairs."
   (with-temp-buffer
     (insert "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
     (insert (format "<propfind xmlns=\"%s\" xmlns:C=\"%s\" xmlns:CS=\"%s\">\n"
-                   ecard-carddav-ns-dav
-                   ecard-carddav-ns-carddav
-                   ecard-carddav-ns-cs))
+                    ecard-carddav-ns-dav
+                    ecard-carddav-ns-carddav
+                    ecard-carddav-ns-cs))
     (insert "  <prop>\n")
     (dolist (prop props)
       (let ((name (car prop))
@@ -535,10 +535,10 @@ Returns SERVER."
          (auth (ecard-carddav--get-auth server))
          (well-known-url (concat url "/.well-known/carddav"))
          (buffer (ecard-carddav--request-with-retry "PROPFIND" well-known-url auth
-                                                     (ecard-carddav--propfind-body
-                                                      `(("current-user-principal" . ,ecard-carddav-ns-dav)))
-                                                     "application/xml; charset=utf-8"
-                                                     '(("Depth" . "0")))))
+                                                    (ecard-carddav--propfind-body
+                                                     `(("current-user-principal" . ,ecard-carddav-ns-dav)))
+                                                    "application/xml; charset=utf-8"
+                                                    '(("Depth" . "0")))))
     (unwind-protect
         (let* ((status (ecard-carddav--get-http-status buffer))
                (xml (when (and status (= status 207))
@@ -554,10 +554,10 @@ Returns SERVER."
 BASE-URL is used to resolve relative URLs.
 Returns absolute URL string."
   (let ((hrefs (ecard-carddav--dom-by-tag-qname xml 'current-user-principal
-                                                 ecard-carddav-ns-dav)))
+                                                ecard-carddav-ns-dav)))
     (when hrefs
       (let ((href-node (ecard-carddav--dom-by-tag-qname (car hrefs) 'href
-                                                          ecard-carddav-ns-dav)))
+                                                        ecard-carddav-ns-dav)))
         (when href-node
           (let ((href (dom-text (car href-node))))
             ;; HREF should already be absolute or server-relative
@@ -566,9 +566,9 @@ Returns absolute URL string."
               ;; Build full URL from base
               (let ((parsed-base (url-generic-parse-url base-url)))
                 (format "%s://%s%s"
-                       (url-type parsed-base)
-                       (url-host parsed-base)
-                       href)))))))))
+                        (url-type parsed-base)
+                        (url-host parsed-base)
+                        href)))))))))
 
 (defun ecard-carddav-discover-addressbook-home (server)
   "Discover addressbook-home-set URL for SERVER.
@@ -602,10 +602,10 @@ Returns SERVER."
 BASE-URL is used to resolve relative URLs.
 Returns absolute URL string."
   (let ((home-sets (ecard-carddav--dom-by-tag-qname xml 'addressbook-home-set
-                                                     ecard-carddav-ns-carddav)))
+                                                    ecard-carddav-ns-carddav)))
     (when home-sets
       (let ((href-node (ecard-carddav--dom-by-tag-qname (car home-sets) 'href
-                                                          ecard-carddav-ns-dav)))
+                                                        ecard-carddav-ns-dav)))
         (when href-node
           (let ((href (dom-text (car href-node))))
             ;; HREF should already be absolute or server-relative
@@ -614,9 +614,9 @@ Returns absolute URL string."
               ;; Build full URL from base
               (let ((parsed-base (url-generic-parse-url base-url)))
                 (format "%s://%s%s"
-                       (url-type parsed-base)
-                       (url-host parsed-base)
-                       href)))))))))
+                        (url-type parsed-base)
+                        (url-host parsed-base)
+                        href)))))))))
 
 (defun ecard-carddav-discover-addressbooks (server)
   "Discover all addressbook collections for SERVER.
@@ -644,7 +644,7 @@ Returns list of `ecard-carddav-addressbook' objects."
                  (xml (when (and status (= status 207))
                         (ecard-carddav--parse-xml-response buffer)))
                  (addressbooks (when xml
-                                (ecard-carddav--parse-addressbooks xml server home-url))))
+                                 (ecard-carddav--parse-addressbooks xml server home-url))))
             (oset server addressbooks addressbooks)
             addressbooks)
         (kill-buffer buffer)))))
@@ -661,25 +661,25 @@ Returns list of `ecard-carddav-addressbook' objects."
              (href (when href-node (dom-text (car href-node))))
              (propstat (ecard-carddav--dom-by-tag-qname response 'propstat ecard-carddav-ns-dav))
              (prop (when propstat (ecard-carddav--dom-by-tag-qname (car propstat) 'prop
-                                                                     ecard-carddav-ns-dav)))
+                                                                   ecard-carddav-ns-dav)))
              (resourcetype (when prop (ecard-carddav--dom-by-tag-qname (car prop) 'resourcetype
-                                                                         ecard-carddav-ns-dav)))
+                                                                       ecard-carddav-ns-dav)))
              (is-addressbook (and resourcetype
-                                 (ecard-carddav--dom-by-tag-qname (car resourcetype) 'addressbook
+                                  (ecard-carddav--dom-by-tag-qname (car resourcetype) 'addressbook
                                                                    ecard-carddav-ns-carddav))))
         (when (and href is-addressbook)
           (let* ((url (ecard-carddav--resolve-url href base-url))
                  (displayname-node (when prop (ecard-carddav--dom-by-tag-qname (car prop) 'displayname
-                                                                                 ecard-carddav-ns-dav)))
+                                                                               ecard-carddav-ns-dav)))
                  (displayname (when displayname-node (dom-text (car displayname-node))))
                  (desc-node (when prop (ecard-carddav--dom-by-tag-qname (car prop) 'addressbook-description
-                                                                          ecard-carddav-ns-carddav)))
+                                                                        ecard-carddav-ns-carddav)))
                  (description (when desc-node (dom-text (car desc-node))))
                  (ctag-node (when prop (ecard-carddav--dom-by-tag-qname (car prop) 'getctag
-                                                                          ecard-carddav-ns-cs)))
+                                                                        ecard-carddav-ns-cs)))
                  (ctag (when ctag-node (dom-text (car ctag-node))))
                  (sync-node (when prop (ecard-carddav--dom-by-tag-qname (car prop) 'sync-token
-                                                                          ecard-carddav-ns-dav)))
+                                                                        ecard-carddav-ns-dav)))
                  (sync-token (when sync-node (dom-text (car sync-node)))))
             (push (ecard-carddav-addressbook
                    :server server
@@ -752,9 +752,9 @@ Returns list of `ecard-carddav-resource' objects."
              (href (when href-node (dom-text (car href-node))))
              (propstat (ecard-carddav--dom-by-tag-qname response 'propstat ecard-carddav-ns-dav))
              (prop (when propstat (ecard-carddav--dom-by-tag-qname (car propstat) 'prop
-                                                                     ecard-carddav-ns-dav)))
+                                                                   ecard-carddav-ns-dav)))
              (content-type-node (when prop (ecard-carddav--dom-by-tag-qname (car prop) 'getcontenttype
-                                                                              ecard-carddav-ns-dav)))
+                                                                            ecard-carddav-ns-dav)))
              (content-type (when content-type-node (dom-text (car content-type-node)))))
         ;; Only include vCard resources, not the addressbook collection itself
         ;; Content-type check is optional since some servers don't return it
@@ -766,7 +766,7 @@ Returns list of `ecard-carddav-resource' objects."
                  (is-collection (string= url addressbook-url)))
             (unless is-collection
               (let* ((etag-node (when prop (ecard-carddav--dom-by-tag-qname (car prop) 'getetag
-                                                                              ecard-carddav-ns-dav)))
+                                                                            ecard-carddav-ns-dav)))
                      (etag (when etag-node (dom-text (car etag-node))))
                      ;; Remove quotes from ETag if present
                      (etag (when etag (string-trim etag "\"" "\"")))
@@ -860,7 +860,7 @@ servers that only support vCard 3.0 (e.g., Radicale)."
                         serialized)
                       'utf-8))
          (headers (when etag
-                   (list (cons "If-Match" (format "\"%s\"" etag)))))
+                    (list (cons "If-Match" (format "\"%s\"" etag)))))
          (buffer (ecard-carddav--request-with-retry
                   "PUT" url auth ecard-data "text/vcard; charset=utf-8" headers)))
     (unwind-protect
@@ -896,7 +896,7 @@ Signals conflict error if ETAG doesn't match."
                   path-or-url
                 (ecard-carddav--resolve-url path-or-url (oref addressbook url))))
          (headers (when etag
-                   (list (cons "If-Match" (format "\"%s\"" etag)))))
+                    (list (cons "If-Match" (format "\"%s\"" etag)))))
          (buffer (ecard-carddav--request-with-retry "DELETE" url auth nil nil headers)))
     (unwind-protect
         (let ((status (ecard-carddav--get-http-status buffer)))
@@ -944,8 +944,8 @@ Example:
   (interactive
    (let* ((addressbook (if (and (boundp 'ecard-display--addressbook)
                                 ecard-display--addressbook)
-                          ecard-display--addressbook
-                        (error "No addressbook context available")))
+                           ecard-display--addressbook
+                         (error "No addressbook context available")))
           (old-path (read-string "Old resource path or URL: "))
           (new-uid (read-string "New UID: ")))
      (list addressbook old-path new-uid)))
@@ -1033,8 +1033,8 @@ individual GET requests."
   (with-temp-buffer
     (insert "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
     (insert (format "<C:addressbook-multiget xmlns=\"%s\" xmlns:C=\"%s\">\n"
-                   ecard-carddav-ns-dav
-                   ecard-carddav-ns-carddav))
+                    ecard-carddav-ns-dav
+                    ecard-carddav-ns-carddav))
     (insert "  <prop>\n")
     (insert "    <getetag/>\n")
     (insert "    <C:address-data/>\n")
@@ -1069,21 +1069,21 @@ Returns list of `ecard-carddav-resource' objects with ecard data populated."
              (href (when href-node (dom-text (car href-node))))
              (propstat (ecard-carddav--dom-by-tag-qname response 'propstat ecard-carddav-ns-dav))
              (status-node (when propstat
-                           (ecard-carddav--dom-by-tag-qname (car propstat) 'status
-                                                              ecard-carddav-ns-dav)))
+                            (ecard-carddav--dom-by-tag-qname (car propstat) 'status
+                                                             ecard-carddav-ns-dav)))
              (status-text (when status-node (dom-text (car status-node))))
              (is-success (and status-text (string-match-p "200" status-text))))
 
         (when (and href is-success)
           (let* ((prop (when propstat
-                        (ecard-carddav--dom-by-tag-qname (car propstat) 'prop
+                         (ecard-carddav--dom-by-tag-qname (car propstat) 'prop
                                                           ecard-carddav-ns-dav)))
                  (etag-node (when prop
-                             (ecard-carddav--dom-by-tag-qname (car prop) 'getetag
+                              (ecard-carddav--dom-by-tag-qname (car prop) 'getetag
                                                                ecard-carddav-ns-dav)))
                  (etag (when etag-node (dom-text (car etag-node))))
                  (address-data-node (when prop
-                                     (ecard-carddav--dom-by-tag-qname (car prop) 'address-data
+                                      (ecard-carddav--dom-by-tag-qname (car prop) 'address-data
                                                                        ecard-carddav-ns-carddav)))
                  (ecard-data (when address-data-node (dom-text (car address-data-node)))))
 
@@ -1096,11 +1096,11 @@ Returns list of `ecard-carddav-resource' objects with ecard data populated."
               (condition-case err
                   (let* ((ecard-obj (ecard-compat-parse ecard-data))
                          (path (if (string-prefix-p "http" href)
-                                  (url-filename (url-generic-parse-url href))
-                                href))
+                                   (url-filename (url-generic-parse-url href))
+                                 href))
                          (url (if (string-prefix-p "http" href)
-                                 href
-                               (ecard-carddav--resolve-url href (oref addressbook url)))))
+                                  href
+                                (ecard-carddav--resolve-url href (oref addressbook url)))))
                     (push (ecard-carddav-resource
                            :addressbook addressbook
                            :url url

@@ -73,75 +73,75 @@
 ;;; EIEIO Classes
 
 (defclass ecard-carddav-sync ()
-  ((addressbook
-    :initarg :addressbook
-    :initform nil
-    :type (or null ecard-carddav-addressbook)
-    :documentation "Address book to synchronize.")
-   (cache-dir
-    :initarg :cache-dir
-    :initform nil
-    :type (or null string)
-    :documentation "Directory for local cache storage.")
-   (local-cache
-    :initarg :local-cache
-    :initform (make-hash-table :test 'equal)
-    :type hash-table
-    :documentation "Hash table: path -> (ecard etag mtime).")
-   (last-sync-token
-    :initarg :last-sync-token
-    :initform nil
-    :type (or null string)
-    :documentation "Last sync-token from server.")
-   (last-ctag
-    :initarg :last-ctag
-    :initform nil
-    :type (or null string)
-    :documentation "Last CTag from server.")
-   (strategy
-    :initarg :strategy
-    :initform :server-wins
-    :type symbol
-    :documentation "Conflict resolution strategy.")
-   (conflict-callback
-    :initarg :conflict-callback
-    :initform nil
-    :type (or null function)
-    :documentation "Callback for manual conflict resolution."))
-  "Synchronization manager for CardDAV address book.")
+          ((addressbook
+            :initarg :addressbook
+            :initform nil
+            :type (or null ecard-carddav-addressbook)
+            :documentation "Address book to synchronize.")
+           (cache-dir
+            :initarg :cache-dir
+            :initform nil
+            :type (or null string)
+            :documentation "Directory for local cache storage.")
+           (local-cache
+            :initarg :local-cache
+            :initform (make-hash-table :test 'equal)
+            :type hash-table
+            :documentation "Hash table: path -> (ecard etag mtime).")
+           (last-sync-token
+            :initarg :last-sync-token
+            :initform nil
+            :type (or null string)
+            :documentation "Last sync-token from server.")
+           (last-ctag
+            :initarg :last-ctag
+            :initform nil
+            :type (or null string)
+            :documentation "Last CTag from server.")
+           (strategy
+            :initarg :strategy
+            :initform :server-wins
+            :type symbol
+            :documentation "Conflict resolution strategy.")
+           (conflict-callback
+            :initarg :conflict-callback
+            :initform nil
+            :type (or null function)
+            :documentation "Callback for manual conflict resolution."))
+          "Synchronization manager for CardDAV address book.")
 
 (defclass ecard-carddav-sync-conflict ()
-  ((path
-    :initarg :path
-    :initform nil
-    :type (or null string)
-    :documentation "Path to conflicting resource.")
-   (local-ecard
-    :initarg :local-ecard
-    :initform nil
-    ;; Note: :type removed because ecard is now a cl-defstruct, not an EIEIO class
-    :documentation "Local version of vCard.")
-   (local-etag
-    :initarg :local-etag
-    :initform nil
-    :type (or null string)
-    :documentation "Local ETag.")
-   (server-ecard
-    :initarg :server-ecard
-    :initform nil
-    ;; Note: :type removed because ecard is now a cl-defstruct, not an EIEIO class
-    :documentation "Server version of vCard.")
-   (server-etag
-    :initarg :server-etag
-    :initform nil
-    :type (or null string)
-    :documentation "Server ETag.")
-   (resolution
-    :initarg :resolution
-    :initform nil
-    :type symbol
-    :documentation "Resolved action: :use-local, :use-server, :merge."))
-  "Represents a synchronization conflict.")
+          ((path
+            :initarg :path
+            :initform nil
+            :type (or null string)
+            :documentation "Path to conflicting resource.")
+           (local-ecard
+            :initarg :local-ecard
+            :initform nil
+            ;; Note: :type removed because ecard is now a cl-defstruct, not an EIEIO class
+            :documentation "Local version of vCard.")
+           (local-etag
+            :initarg :local-etag
+            :initform nil
+            :type (or null string)
+            :documentation "Local ETag.")
+           (server-ecard
+            :initarg :server-ecard
+            :initform nil
+            ;; Note: :type removed because ecard is now a cl-defstruct, not an EIEIO class
+            :documentation "Server version of vCard.")
+           (server-etag
+            :initarg :server-etag
+            :initform nil
+            :type (or null string)
+            :documentation "Server ETag.")
+           (resolution
+            :initarg :resolution
+            :initform nil
+            :type symbol
+            :documentation "Resolved action: :use-local, :use-server, :merge."))
+          "Represents a synchronization conflict.")
 
 ;;; Cache management
 
@@ -333,7 +333,7 @@ Returns plist with :added :modified :deleted paths."
     (unwind-protect
         (let* ((status (ecard-carddav--get-http-status buffer))
                (xml (when (and status (= status 207))
-                     (ecard-carddav--parse-xml-response buffer))))
+                      (ecard-carddav--parse-xml-response buffer))))
           (if xml
               (ecard-carddav-sync--process-sync-response sync xml url)
             (signal 'ecard-carddav-sync-error
@@ -345,8 +345,8 @@ Returns plist with :added :modified :deleted paths."
   (with-temp-buffer
     (insert "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
     (insert (format "<sync-collection xmlns=\"%s\" xmlns:C=\"%s\">\n"
-                   ecard-carddav-ns-dav
-                   ecard-carddav-ns-carddav))
+                    ecard-carddav-ns-dav
+                    ecard-carddav-ns-carddav))
     (insert (format "  <sync-token>%s</sync-token>\n" (or sync-token "")))
     (insert "  <sync-level>1</sync-level>\n")
     (insert "  <prop>\n")
@@ -391,9 +391,9 @@ Returns plist with :added :modified :deleted paths."
                 ;; Added or modified resource
                 (let* ((propstat (ecard-carddav--dom-by-tag-qname response 'propstat ecard-carddav-ns-dav))
                        (prop (when propstat (ecard-carddav--dom-by-tag-qname (car propstat) 'prop
-                                                                               ecard-carddav-ns-dav)))
+                                                                             ecard-carddav-ns-dav)))
                        (etag-node (when prop (ecard-carddav--dom-by-tag-qname (car prop) 'getetag
-                                                                                ecard-carddav-ns-dav)))
+                                                                              ecard-carddav-ns-dav)))
                        (etag (when etag-node (dom-text (car etag-node))))
                        (cached (ecard-carddav-sync--load-from-cache sync path)))
 
@@ -443,7 +443,7 @@ PATHS is list of resource paths to fetch in this batch."
     (unwind-protect
         (let* ((status (ecard-carddav--get-http-status buffer))
                (xml (when (and status (= status 207))
-                     (ecard-carddav--parse-xml-response buffer))))
+                      (ecard-carddav--parse-xml-response buffer))))
           (when xml
             (ecard-carddav-sync--process-multiget-response sync xml url)))
       (kill-buffer buffer))))
@@ -453,8 +453,8 @@ PATHS is list of resource paths to fetch in this batch."
   (with-temp-buffer
     (insert "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
     (insert (format "<C:addressbook-multiget xmlns=\"%s\" xmlns:C=\"%s\">\n"
-                   ecard-carddav-ns-dav
-                   ecard-carddav-ns-carddav))
+                    ecard-carddav-ns-dav
+                    ecard-carddav-ns-carddav))
     (insert "  <prop>\n")
     (insert "    <getetag/>\n")
     (insert "    <C:address-data/>\n")
@@ -473,12 +473,12 @@ BASE-URL is used to resolve relative URLs."
              (href (when href-node (dom-text (car href-node))))
              (propstat (ecard-carddav--dom-by-tag-qname response 'propstat ecard-carddav-ns-dav))
              (prop (when propstat (ecard-carddav--dom-by-tag-qname (car propstat) 'prop
-                                                                     ecard-carddav-ns-dav)))
+                                                                   ecard-carddav-ns-dav)))
              (etag-node (when prop (ecard-carddav--dom-by-tag-qname (car prop) 'getetag
-                                                                      ecard-carddav-ns-dav)))
+                                                                    ecard-carddav-ns-dav)))
              (etag (when etag-node (dom-text (car etag-node))))
              (data-node (when prop (ecard-carddav--dom-by-tag-qname (car prop) 'address-data
-                                                                      ecard-carddav-ns-carddav)))
+                                                                    ecard-carddav-ns-carddav)))
              (ecard-data (when data-node (dom-text (car data-node)))))
 
         (when (and href ecard-data)

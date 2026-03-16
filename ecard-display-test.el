@@ -25,9 +25,9 @@
         (progn
           (setq ecard-carddav-servers
                 '((:name "Test Server"
-                   :url "https://test.example.com"
-                   :username "test"
-                   :password "secret")))
+                         :url "https://test.example.com"
+                         :username "test"
+                         :password "secret")))
           (with-temp-buffer
             (ecard-display-servers-mode)
             (should (eq major-mode 'ecard-display-servers-mode))
@@ -42,13 +42,13 @@
         (progn
           (setq ecard-carddav-servers
                 '((:name "Server 1"
-                   :url "https://server1.example.com"
-                   :username "user1"
-                   :password "pass1")
+                         :url "https://server1.example.com"
+                         :username "user1"
+                         :password "pass1")
                   (:name "Server 2"
-                   :url "https://server2.example.com"
-                   :username "user2"
-                   :password "pass2")))
+                         :url "https://server2.example.com"
+                         :username "user2"
+                         :password "pass2")))
           (with-temp-buffer
             (ecard-display-servers-mode)
             (ecard-display-servers-refresh)
@@ -1077,7 +1077,7 @@ not all resources with some having placeholder names."
          (ecard-obj (ecard :fn (list fn-prop) :email (list email-prop)))
          (server (ecard-carddav-server))
          (addressbook (ecard-carddav-addressbook :server server
-                                                  :url "https://test.example.com/"))
+                                                 :url "https://test.example.com/"))
          (resource (ecard-carddav-resource
                     :addressbook addressbook
                     :url "https://test.example.com/widget-test.vcf"

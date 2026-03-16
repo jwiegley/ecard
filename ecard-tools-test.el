@@ -83,8 +83,8 @@ END:VCARD"
 (ert-deftest ecard-tools-test-parse-simple ()
   "Test parsing a simple VCard."
   (let ((vcards (with-temp-buffer
-                   (insert ecard-tools-test--simple-vcard)
-                   (ecard-tools-parse-buffer (current-buffer)))))
+                  (insert ecard-tools-test--simple-vcard)
+                  (ecard-tools-parse-buffer (current-buffer)))))
     (should (= (length vcards) 1))
     (let ((vcard (car vcards)))
       (should (equal (ecard-tools-vcard-fn vcard) "John Doe"))
@@ -93,17 +93,17 @@ END:VCARD"
       (should (equal (ecard-tools-vcard-title vcard) "Developer"))
       (should (= (length (ecard-tools-vcard-email vcard)) 1))
       (should (equal (ecard-tools-email-value
-                     (car (ecard-tools-vcard-email vcard)))
-                    "john@example.com"))
+                      (car (ecard-tools-vcard-email vcard)))
+                     "john@example.com"))
       (should (eq (ecard-tools-email-type
-                  (car (ecard-tools-vcard-email vcard)))
-                 'work)))))
+                   (car (ecard-tools-vcard-email vcard)))
+                  'work)))))
 
 (ert-deftest ecard-tools-test-parse-multi ()
   "Test parsing multi-entry VCard file."
   (let ((vcards (with-temp-buffer
-                   (insert ecard-tools-test--multi-vcard)
-                   (ecard-tools-parse-buffer (current-buffer)))))
+                  (insert ecard-tools-test--multi-vcard)
+                  (ecard-tools-parse-buffer (current-buffer)))))
     (should (= (length vcards) 2))
     (should (equal (ecard-tools-vcard-fn (nth 0 vcards)) "Jane Smith"))
     (should (equal (ecard-tools-vcard-fn (nth 1 vcards)) "Bob Johnson"))
@@ -113,8 +113,8 @@ END:VCARD"
 (ert-deftest ecard-tools-test-parse-special-chars ()
   "Test parsing VCard with special characters."
   (let ((vcards (with-temp-buffer
-                   (insert ecard-tools-test--vcard-with-special-chars)
-                   (ecard-tools-parse-buffer (current-buffer)))))
+                  (insert ecard-tools-test--vcard-with-special-chars)
+                  (ecard-tools-parse-buffer (current-buffer)))))
     (should (= (length vcards) 1))
     (let ((vcard (car vcards)))
       (should (equal (ecard-tools-vcard-fn vcard) "Müller, José"))
@@ -124,11 +124,11 @@ END:VCARD"
 (ert-deftest ecard-tools-test-parse-name-components ()
   "Test parsing N field components."
   (let ((vcards (with-temp-buffer
-                   (insert "BEGIN:VCARD\nVERSION:3.0\n")
-                   (insert "FN:Given Family\n")
-                   (insert "N:Family;Given;Additional;Prefix;Suffix\n")
-                   (insert "END:VCARD")
-                   (ecard-tools-parse-buffer (current-buffer)))))
+                  (insert "BEGIN:VCARD\nVERSION:3.0\n")
+                  (insert "FN:Given Family\n")
+                  (insert "N:Family;Given;Additional;Prefix;Suffix\n")
+                  (insert "END:VCARD")
+                  (ecard-tools-parse-buffer (current-buffer)))))
     (let ((n-field (ecard-tools-vcard-n (car vcards))))
       (should (equal (nth 0 n-field) "Family"))
       (should (equal (nth 1 n-field) "Given"))
@@ -143,8 +143,8 @@ END:VCARD"
 (ert-deftest ecard-tools-test-serialize ()
   "Test serializing a VCard."
   (let* ((vcards (with-temp-buffer
-                    (insert ecard-tools-test--simple-vcard)
-                    (ecard-tools-parse-buffer (current-buffer))))
+                   (insert ecard-tools-test--simple-vcard)
+                   (ecard-tools-parse-buffer (current-buffer))))
          (vcard (car vcards))
          (serialized (ecard-tools-serialize vcard)))
     (should (string-match-p "BEGIN:VCARD" serialized))
@@ -156,20 +156,20 @@ END:VCARD"
 (ert-deftest ecard-tools-test-serialize-roundtrip ()
   "Test that parse->serialize->parse preserves data."
   (let* ((vcards1 (with-temp-buffer
-                     (insert ecard-tools-test--simple-vcard)
-                     (ecard-tools-parse-buffer (current-buffer))))
+                    (insert ecard-tools-test--simple-vcard)
+                    (ecard-tools-parse-buffer (current-buffer))))
          (vcard1 (car vcards1))
          (serialized (ecard-tools-serialize vcard1))
          (vcards2 (with-temp-buffer
-                     (insert serialized)
-                     (ecard-tools-parse-buffer (current-buffer))))
+                    (insert serialized)
+                    (ecard-tools-parse-buffer (current-buffer))))
          (vcard2 (car vcards2)))
     (should (equal (ecard-tools-vcard-fn vcard1)
-                  (ecard-tools-vcard-fn vcard2)))
+                   (ecard-tools-vcard-fn vcard2)))
     (should (equal (ecard-tools-vcard-uid vcard1)
-                  (ecard-tools-vcard-uid vcard2)))
+                   (ecard-tools-vcard-uid vcard2)))
     (should (equal (ecard-tools-vcard-org vcard1)
-                  (ecard-tools-vcard-org vcard2)))))
+                   (ecard-tools-vcard-org vcard2)))))
 
 ;; ============================================================================
 ;; Validation Tests
@@ -178,10 +178,10 @@ END:VCARD"
 (ert-deftest ecard-tools-test-validation-valid ()
   "Test validation of valid VCard."
   (let* ((vcard (ecard-tools-vcard--create
-                :fn "Test Name"
-                :uid "test-123"
-                :email (list (ecard-tools-email-create
-                            :value "test@example.com"))))
+                 :fn "Test Name"
+                 :uid "test-123"
+                 :email (list (ecard-tools-email-create
+                               :value "test@example.com"))))
          (result (ecard-tools-validate vcard)))
     (should (ecard-tools-result-success-p result))
     (should (null (ecard-tools-result-errors result)))))
@@ -192,18 +192,18 @@ END:VCARD"
          (result (ecard-tools-validate vcard)))
     (should-not (ecard-tools-result-success-p result))
     (should (member "Missing required field: FN (Formatted Name)"
-                   (ecard-tools-result-errors result)))))
+                    (ecard-tools-result-errors result)))))
 
 (ert-deftest ecard-tools-test-validation-invalid-email ()
   "Test validation catches invalid email."
   (let* ((vcard (ecard-tools-vcard--create
-                :fn "Test"
-                :email (list (ecard-tools-email-create
-                            :value "invalid-email"))))
+                 :fn "Test"
+                 :email (list (ecard-tools-email-create
+                               :value "invalid-email"))))
          (result (ecard-tools-validate vcard t)))
     (should (ecard-tools-result-success-p result))  ; Warnings don't fail
     (should (member "Invalid email format: invalid-email"
-                   (ecard-tools-result-warnings result)))))
+                    (ecard-tools-result-warnings result)))))
 
 ;; ============================================================================
 ;; Auto-Repair Tests
@@ -217,24 +217,24 @@ END:VCARD"
     (should (ecard-tools-result-success-p result))
     (should (ecard-tools-vcard-uid repaired))
     (should (member "Added missing UID"
-                   (ecard-tools-result-warnings result)))))
+                    (ecard-tools-result-warnings result)))))
 
 (ert-deftest ecard-tools-test-auto-repair-fn-from-email ()
   "Test auto-repair generates FN from email."
   (let* ((vcard (ecard-tools-vcard--create
-                :email (list (ecard-tools-email-create
-                            :value "john.doe@example.com"))))
+                 :email (list (ecard-tools-email-create
+                               :value "john.doe@example.com"))))
          (result (ecard-tools-auto-repair vcard))
          (repaired (ecard-tools-result-data result)))
     (should (ecard-tools-result-success-p result))
     (should (equal (ecard-tools-vcard-fn repaired) "John Doe"))
     (should (member "Generated FN from email"
-                   (ecard-tools-result-warnings result)))))
+                    (ecard-tools-result-warnings result)))))
 
 (ert-deftest ecard-tools-test-auto-repair-fn-from-n ()
   "Test auto-repair generates FN from N field."
   (let* ((vcard (ecard-tools-vcard--create
-                :n '("Smith" "Jane" "" "Dr." "")))
+                 :n '("Smith" "Jane" "" "Dr." "")))
          (result (ecard-tools-auto-repair vcard))
          (repaired (ecard-tools-result-data result)))
     (should (ecard-tools-result-success-p result))
@@ -265,13 +265,13 @@ END:VCARD"
 (ert-deftest ecard-tools-test-name-guessing ()
   "Test name guessing from email."
   (should (equal (ecard-tools--guess-name-from-email "john.doe@example.com")
-                "John Doe"))
+                 "John Doe"))
   (should (equal (ecard-tools--guess-name-from-email "jane_smith@example.com")
-                "Jane Smith"))
+                 "Jane Smith"))
   (should (equal (ecard-tools--guess-name-from-email "bob-jones@example.com")
-                "Bob Jones"))
+                 "Bob Jones"))
   (should (equal (ecard-tools--guess-name-from-email "alice+tag@example.com")
-                "Alice Tag")))
+                 "Alice Tag")))
 
 (ert-deftest ecard-tools-test-uid-generation ()
   "Test UID generation creates unique values."
@@ -289,12 +289,12 @@ END:VCARD"
 (ert-deftest ecard-tools-test-junk-detection ()
   "Test junk VCard detection."
   (let ((junk-vcard (ecard-tools-vcard--create
-                    :email (list (ecard-tools-email-create
-                                :value "noreply@example.com"))))
+                     :email (list (ecard-tools-email-create
+                                   :value "noreply@example.com"))))
         (good-vcard (ecard-tools-vcard--create
-                    :fn "John Doe"
-                    :email (list (ecard-tools-email-create
-                                :value "john@example.com")))))
+                     :fn "John Doe"
+                     :email (list (ecard-tools-email-create
+                                   :value "john@example.com")))))
     (should (ecard-tools--is-junk-vcard-p junk-vcard))
     (should-not (ecard-tools--is-junk-vcard-p good-vcard))))
 
@@ -309,32 +309,32 @@ END:VCARD"
 
     ;; Filter Facebook emails
     (let ((filtered (seq-remove
-                    (lambda (email)
-                      (string-match-p "@facebook\\.com$"
-                                    (ecard-tools-email-value email)))
-                    (ecard-tools-vcard-email vcard))))
+                     (lambda (email)
+                       (string-match-p "@facebook\\.com$"
+                                       (ecard-tools-email-value email)))
+                     (ecard-tools-vcard-email vcard))))
       (should (= (length filtered) 1))
       (should (equal (ecard-tools-email-value (car filtered))
-                    "user@example.com")))))
+                     "user@example.com")))))
 
 (ert-deftest ecard-tools-test-simple-duplicate-key ()
   "Test simple duplicate key generation."
   (let ((vcard1 (ecard-tools-vcard--create
-                :fn "John Doe"
-                :email (list (ecard-tools-email-create
-                            :value "john@example.com"))))
+                 :fn "John Doe"
+                 :email (list (ecard-tools-email-create
+                               :value "john@example.com"))))
         (vcard2 (ecard-tools-vcard--create
-                :fn "John Doe"
-                :email (list (ecard-tools-email-create
-                            :value "john@example.com"))))
+                 :fn "John Doe"
+                 :email (list (ecard-tools-email-create
+                               :value "john@example.com"))))
         (vcard3 (ecard-tools-vcard--create
-                :fn "Jane Smith"
-                :email (list (ecard-tools-email-create
-                            :value "jane@example.com")))))
+                 :fn "Jane Smith"
+                 :email (list (ecard-tools-email-create
+                               :value "jane@example.com")))))
     (should (equal (ecard-tools--vcard-simple-key vcard1)
-                  (ecard-tools--vcard-simple-key vcard2)))
+                   (ecard-tools--vcard-simple-key vcard2)))
     (should-not (equal (ecard-tools--vcard-simple-key vcard1)
-                      (ecard-tools--vcard-simple-key vcard3)))))
+                       (ecard-tools--vcard-simple-key vcard3)))))
 
 ;; ============================================================================
 ;; Similarity Tests
@@ -359,20 +359,20 @@ END:VCARD"
 (ert-deftest ecard-tools-test-vcard-similarity ()
   "Test VCard similarity calculation."
   (let ((vcard1 (ecard-tools-vcard--create
-                :fn "John Doe"
-                :email (list (ecard-tools-email-create
-                            :value "john@example.com"))
-                :org "Acme Corp"))
+                 :fn "John Doe"
+                 :email (list (ecard-tools-email-create
+                               :value "john@example.com"))
+                 :org "Acme Corp"))
         (vcard2 (ecard-tools-vcard--create
-                :fn "John Doe"
-                :email (list (ecard-tools-email-create
-                            :value "john@example.com"))
-                :org "Acme Corp"))
+                 :fn "John Doe"
+                 :email (list (ecard-tools-email-create
+                               :value "john@example.com"))
+                 :org "Acme Corp"))
         (vcard3 (ecard-tools-vcard--create
-                :fn "Jane Smith"
-                :email (list (ecard-tools-email-create
-                            :value "jane@example.com"))
-                :org "Other Inc")))
+                 :fn "Jane Smith"
+                 :email (list (ecard-tools-email-create
+                               :value "jane@example.com"))
+                 :org "Other Inc")))
     (should (= (ecard-tools--vcard-similarity vcard1 vcard2) 1.0))
     (should (< (ecard-tools--vcard-similarity vcard1 vcard3) 0.5))))
 
@@ -383,21 +383,21 @@ END:VCARD"
 (ert-deftest ecard-tools-test-merge-emails ()
   "Test merging VCards deduplicates emails."
   (let ((vcard1 (ecard-tools-vcard--create
-                :fn "John Doe"
-                :email (list (ecard-tools-email-create
-                            :value "john@example.com")
-                           (ecard-tools-email-create
-                            :value "john@work.com"))))
+                 :fn "John Doe"
+                 :email (list (ecard-tools-email-create
+                               :value "john@example.com")
+                              (ecard-tools-email-create
+                               :value "john@work.com"))))
         (vcard2 (ecard-tools-vcard--create
-                :fn "John Doe"
-                :email (list (ecard-tools-email-create
-                            :value "john@example.com")
-                           (ecard-tools-email-create
-                            :value "john@personal.com")))))
+                 :fn "John Doe"
+                 :email (list (ecard-tools-email-create
+                               :value "john@example.com")
+                              (ecard-tools-email-create
+                               :value "john@personal.com")))))
     (let ((merged (ecard-tools-merge-vcards vcard1 vcard2)))
       (should (= (length (ecard-tools-vcard-email merged)) 3))
       (let ((emails (mapcar #'ecard-tools-email-value
-                           (ecard-tools-vcard-email merged))))
+                            (ecard-tools-vcard-email merged))))
         (should (member "john@example.com" emails))
         (should (member "john@work.com" emails))
         (should (member "john@personal.com" emails))))))
@@ -405,12 +405,12 @@ END:VCARD"
 (ert-deftest ecard-tools-test-merge-fields ()
   "Test merging VCards combines fields correctly."
   (let ((vcard1 (ecard-tools-vcard--create
-                :fn "John Doe"
-                :org "Acme Corp"))
+                 :fn "John Doe"
+                 :org "Acme Corp"))
         (vcard2 (ecard-tools-vcard--create
-                :fn "John Doe"
-                :title "Developer"
-                :note "Important contact")))
+                 :fn "John Doe"
+                 :title "Developer"
+                 :note "Important contact")))
     (let ((merged (ecard-tools-merge-vcards vcard1 vcard2)))
       (should (equal (ecard-tools-vcard-org merged) "Acme Corp"))
       (should (equal (ecard-tools-vcard-title merged) "Developer"))
@@ -424,10 +424,10 @@ END:VCARD"
   "Test file I/O operations with temporary files."
   (let ((temp-file (make-temp-file "vcard-test" nil ".vcf"))
         (vcard (ecard-tools-vcard--create
-               :fn "Test User"
-               :uid "test-io-123"
-               :email (list (ecard-tools-email-create
-                           :value "test@example.com")))))
+                :fn "Test User"
+                :uid "test-io-123"
+                :email (list (ecard-tools-email-create
+                              :value "test@example.com")))))
     (unwind-protect
         (progn
           ;; Write
@@ -447,11 +447,11 @@ END:VCARD"
 (ert-deftest ecard-tools-test-default-filename ()
   "Test default filename generation."
   (let ((vcard-with-uid (ecard-tools-vcard--create
-                        :uid "test-123"))
+                         :uid "test-123"))
         (vcard-without-uid (ecard-tools-vcard--create
-                          :fn "Test")))
+                            :fn "Test")))
     (should (equal (ecard-tools--default-filename vcard-with-uid)
-                  "test_123.vcf"))
+                   "test_123.vcf"))
     (let ((filename (ecard-tools--default-filename vcard-without-uid)))
       (should (string-match-p "^[0-9]+-[a-f0-9]+\\.vcf$" filename)))))
 
@@ -513,9 +513,9 @@ END:VCARD"
 (ert-deftest ecard-tools-test-empty-fields ()
   "Test handling of empty fields."
   (let ((vcard (ecard-tools-vcard--create
-               :fn ""
-               :email (list (ecard-tools-email-create :value "valid@example.com"))
-               :tel (list (ecard-tools-tel-create :value "555-1234")))))
+                :fn ""
+                :email (list (ecard-tools-email-create :value "valid@example.com"))
+                :tel (list (ecard-tools-tel-create :value "555-1234")))))
     (let ((serialized (ecard-tools-serialize vcard)))
       (should (string-match-p "FN:" serialized))
       (should (string-match-p "EMAIL" serialized))
@@ -548,12 +548,12 @@ END:VCARD"
   "Test handling of folded lines in VCard."
   (let ((folded "BEGIN:VCARD\nVERSION:3.0\nFN:Very Long Name That\n Continues On Next Line\nEND:VCARD"))
     (let ((vcards (with-temp-buffer
-                     (insert folded)
-                     (ecard-tools-parse-buffer (current-buffer)))))
+                    (insert folded)
+                    (ecard-tools-parse-buffer (current-buffer)))))
       (should (= (length vcards) 1))
       (let ((vcard (car vcards)))
         (should (equal (ecard-tools-vcard-fn vcard)
-                      "Very Long Name That Continues On Next Line"))))))
+                       "Very Long Name That Continues On Next Line"))))))
 
 ;; ============================================================================
 ;; Run Tests

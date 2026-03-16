@@ -100,7 +100,7 @@
                :username "user"
                :password "pass")))
     (should (string= (ecard-carddav-auth-get-header auth)
-                    "Basic dXNlcjpwYXNz"))))
+                     "Basic dXNlcjpwYXNz"))))
 
 (ert-deftest ecard-carddav-test-auth-basic-valid ()
   "Test Basic Auth validation."
@@ -123,7 +123,7 @@
   (let ((auth (ecard-carddav-auth-bearer-create
                :token "mytoken123")))
     (should (string= (ecard-carddav-auth-get-header auth)
-                    "Bearer mytoken123"))))
+                     "Bearer mytoken123"))))
 
 (ert-deftest ecard-carddav-test-auth-bearer-expired ()
   "Test Bearer token expiration."
@@ -248,9 +248,9 @@
         (let ((resources (ecard-carddav-list-resources ab)))
           (should (= (length resources) 2))
           (should (member "/addressbooks/user/contacts/john.vcf"
-                         (mapcar (lambda (r) (oref r path)) resources)))
+                          (mapcar (lambda (r) (oref r path)) resources)))
           (should (member "/addressbooks/user/contacts/jane.vcf"
-                         (mapcar (lambda (r) (oref r path)) resources)))))
+                          (mapcar (lambda (r) (oref r path)) resources)))))
     (ecard-carddav-test--teardown)))
 
 (ert-deftest ecard-carddav-test-update-with-etag ()
@@ -269,18 +269,18 @@
 
         ;; Create initial vCard
         (let ((resource1 (ecard-carddav-put-ecard
-                         ab "/addressbooks/user/contacts/john.vcf"
-                         vcard1)))
+                          ab "/addressbooks/user/contacts/john.vcf"
+                          vcard1)))
           (should (oref resource1 etag))
 
           ;; Update with correct ETag
           (let ((vcard2 (ecard-carddav-test--create-test-ecard "John Smith")))
             (let ((resource2 (ecard-carddav-put-ecard
-                             ab "/addressbooks/user/contacts/john.vcf"
-                             vcard2
-                             (oref resource1 etag))))
+                              ab "/addressbooks/user/contacts/john.vcf"
+                              vcard2
+                              (oref resource1 etag))))
               (should (not (string= (oref resource1 etag)
-                                   (oref resource2 etag))))))))
+                                    (oref resource2 etag))))))))
     (ecard-carddav-test--teardown)))
 
 (ert-deftest ecard-carddav-test-update-with-wrong-etag ()
@@ -394,9 +394,9 @@
 
           ;; Verify local cache
           (let ((local-john (ecard-carddav-sync-get-local
-                            sync "/addressbooks/user/contacts/john.vcf"))
+                             sync "/addressbooks/user/contacts/john.vcf"))
                 (local-jane (ecard-carddav-sync-get-local
-                            sync "/addressbooks/user/contacts/jane.vcf")))
+                             sync "/addressbooks/user/contacts/jane.vcf")))
             (should (ecard-p local-john))
             (should (ecard-p local-jane))
             (should (string= (ecard-get-property-value local-john 'fn) "John Doe"))
@@ -435,7 +435,7 @@
         ;; Incremental sync
         (let ((result (ecard-carddav-sync-incremental sync)))
           (should (member "/addressbooks/user/contacts/jane.vcf"
-                         (plist-get result :added)))
+                          (plist-get result :added)))
 
           ;; Verify both are in local cache
           (let ((all-local (ecard-carddav-sync-get-all-local sync)))
@@ -458,8 +458,8 @@
 
         ;; Create sync manager and add data
         (let ((sync1 (ecard-carddav-sync-create
-                     :addressbook ab
-                     :cache-dir cache-dir)))
+                      :addressbook ab
+                      :cache-dir cache-dir)))
           (ecard-carddav-put-ecard
            ab "/addressbooks/user/contacts/john.vcf"
            (ecard-carddav-test--create-test-ecard "John Doe"))
@@ -467,13 +467,13 @@
 
         ;; Create new sync manager with same cache dir
         (let ((sync2 (ecard-carddav-sync-create
-                     :addressbook ab
-                     :cache-dir cache-dir)))
+                      :addressbook ab
+                      :cache-dir cache-dir)))
           (ecard-carddav-sync--load-cache-index sync2)
 
           ;; Verify data persisted
           (let ((local (ecard-carddav-sync-get-local
-                       sync2 "/addressbooks/user/contacts/john.vcf")))
+                        sync2 "/addressbooks/user/contacts/john.vcf")))
             (should (ecard-p local))
             (should (string= (ecard-get-property-value local 'fn) "John Doe")))))
     (ecard-carddav-test--teardown)))
@@ -651,9 +651,9 @@ able to list resources by assuming all child items are vCards."
 
             ;; Set up sync
             (let ((sync (ecard-carddav-sync-create
-                        :addressbook ab
-                        :cache-dir cache-dir
-                        :strategy :server-wins)))
+                         :addressbook ab
+                         :cache-dir cache-dir
+                         :strategy :server-wins)))
 
               ;; Initial sync
               (let ((updated (ecard-carddav-sync-full sync)))
@@ -667,14 +667,14 @@ able to list resources by assuming all child items are vCards."
               ;; Incremental sync
               (let ((result (ecard-carddav-sync-incremental sync)))
                 (should (member "/addressbooks/user/contacts/charlie.vcf"
-                               (plist-get result :added))))
+                                (plist-get result :added))))
 
               ;; Verify all contacts in cache
               (let ((all-contacts (ecard-carddav-sync-get-all-local sync)))
                 (should (= (length all-contacts) 3))
                 (let ((names (mapcar (lambda (pair)
-                                      (ecard-get-property-value (cdr pair) 'fn))
-                                    all-contacts)))
+                                       (ecard-get-property-value (cdr pair) 'fn))
+                                     all-contacts)))
                   (should (member "Alice Johnson" names))
                   (should (member "Bob Williams" names))
                   (should (member "Charlie Brown" names))))))))
@@ -721,7 +721,7 @@ able to list resources by assuming all child items are vCards."
 
             ;; Verify old contact is deleted
             (should-error (ecard-carddav-get-resource ab "/addressbooks/user/contacts/old.vcf")
-                         :type 'ecard-carddav-not-found-error))))
+                          :type 'ecard-carddav-not-found-error))))
     (ecard-carddav-test--teardown)))
 
 (ert-deftest ecard-carddav-test-change-uid-nonexistent-resource ()
@@ -739,7 +739,7 @@ able to list resources by assuming all child items are vCards."
           ;; Try to change UID of non-existent contact
           (should-error (ecard-carddav-change-uid ab "/addressbooks/user/contacts/nonexistent.vcf"
                                                   "urn:uuid:new-uid")
-                       :type 'ecard-carddav-not-found-error)))
+                        :type 'ecard-carddav-not-found-error)))
     (ecard-carddav-test--teardown)))
 
 (ert-deftest ecard-carddav-test-change-uid-preserves-properties ()
@@ -778,11 +778,11 @@ able to list resources by assuming all child items are vCards."
               ;; Verify all other properties preserved
               (should (string= "John Doe" (ecard-get-property-value new-ecard 'fn)))
               (should (equal (list "Doe" "John" "Q" "Dr." "Jr.")
-                            (ecard-get-property-value new-ecard 'n)))
+                             (ecard-get-property-value new-ecard 'n)))
               (should (string= "john@example.com" (ecard-get-property-value new-ecard 'email)))
               (should (string= "+1-555-1234" (ecard-get-property-value new-ecard 'tel)))
               (should (equal (list "Acme Corp" "Engineering")
-                            (ecard-get-property-value new-ecard 'org)))
+                             (ecard-get-property-value new-ecard 'org)))
               (should (string= "Senior Developer" (ecard-get-property-value new-ecard 'title)))
               (should (string= "Important contact" (ecard-get-property-value new-ecard 'note)))))))
     (ecard-carddav-test--teardown)))

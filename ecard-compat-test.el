@@ -94,7 +94,7 @@
 (ert-deftest ecard-compat-detect-media-type-from-param ()
   "Test media type detection from TYPE parameter."
   (should (string= (ecard-compat--detect-media-type
-                   "PHOTO" '(("TYPE" . "image/png")))
+                    "PHOTO" '(("TYPE" . "image/png")))
                    "image/png")))
 
 ;;; vCard 2.1 parsing tests

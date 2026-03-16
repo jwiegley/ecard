@@ -1381,9 +1381,9 @@ END:VCARD"
     (should (= (length fn-props) 3))
     ;; Verify ALTID parameters exist on properties that have them
     (let ((props-with-altid (cl-remove-if-not
-                              (lambda (prop)
-                                (assoc "ALTID" (ecard-property-parameters prop)))
-                              fn-props)))
+                             (lambda (prop)
+                               (assoc "ALTID" (ecard-property-parameters prop)))
+                             fn-props)))
       (should (= (length props-with-altid) 2))
       ;; All ALTID values should be "1"
       (dolist (prop props-with-altid)
@@ -2051,10 +2051,10 @@ Per RFC 6350, lines starting with space/tab are continuations.
 A 4-space line gets treated as continuation (first space stripped, 3 spaces appended to previous property).
 This test verifies that such input is parsed without error."
   (let* ((spaces-line (concat "BEGIN:VCARD\r\nVERSION:4.0\r\n"
-                             "FN:Test User\r\n"
-                             "    \r\n"  ;; 4 spaces - treated as continuation, appends 3 spaces to FN
-                             "EMAIL:test@example.com\r\n"
-                             "END:VCARD"))
+                              "FN:Test User\r\n"
+                              "    \r\n"  ;; 4 spaces - treated as continuation, appends 3 spaces to FN
+                              "EMAIL:test@example.com\r\n"
+                              "END:VCARD"))
          (vc (ecard-parse spaces-line)))
     (should (ecard-p vc))
     ;; The "    " line is a continuation, so FN becomes "Test User   " (3 trailing spaces)
@@ -2065,10 +2065,10 @@ This test verifies that such input is parsed without error."
   "Test that continuation lines work correctly when followed by whitespace-only continuation.
 This simulates a real-world case: valid continuation followed by whitespace-only continuation."
   (let* ((complex-case (concat "BEGIN:VCARD\r\nVERSION:4.0\r\n"
-                              "FN:Test\r\n"
-                              " User\r\n"  ;; Valid continuation, appends "User"
-                              "    \r\n"   ;; Whitespace-only continuation, appends 3 spaces
-                              "EMAIL:test@example.com\r\nEND:VCARD"))
+                               "FN:Test\r\n"
+                               " User\r\n"  ;; Valid continuation, appends "User"
+                               "    \r\n"   ;; Whitespace-only continuation, appends 3 spaces
+                               "EMAIL:test@example.com\r\nEND:VCARD"))
          (vc (ecard-parse complex-case)))
     (should (ecard-p vc))
     ;; FN unfolds to "Test" + "User" + "   " = "TestUser   "

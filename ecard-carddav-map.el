@@ -157,8 +157,8 @@ Returns updated stats plist."
         ;; Fetch latest version and retry once
         (condition-case retry-err
             (let* ((latest (ecard-carddav-get-resource
-                           addressbook
-                           (oref resource path)))
+                            addressbook
+                            (oref resource path)))
                    (latest-etag (oref latest etag)))
               ;; Update the ecard data but keep transformation result
               ;; This is a simple merge strategy
@@ -182,8 +182,8 @@ Returns updated stats plist."
         ;; Force update by fetching latest ETag
         (condition-case force-err
             (let* ((latest (ecard-carddav-get-resource
-                           addressbook
-                           (oref resource path)))
+                            addressbook
+                            (oref resource path)))
                    (latest-etag (oref latest etag)))
               (ecard-carddav-put-ecard
                addressbook
@@ -248,8 +248,8 @@ Returns updated stats plist."
         ;; Force delete by fetching latest ETag
         (condition-case force-err
             (let* ((latest (ecard-carddav-get-resource
-                           addressbook
-                           (oref resource path)))
+                            addressbook
+                            (oref resource path)))
                    (latest-etag (oref latest etag)))
               (ecard-carddav-delete-resource
                addressbook
@@ -357,8 +357,8 @@ Example:
          (resource-paths (mapcar (lambda (r) (oref r path)) all-resources))
          ;; Filter paths if filter-fn provided
          (filtered-paths (if filter-fn
-                            (cl-remove-if-not filter-fn resource-paths)
-                          resource-paths))
+                             (cl-remove-if-not filter-fn resource-paths)
+                           resource-paths))
          (total (length filtered-paths))
          (stats (ecard-carddav-map--make-stats :total total)))
 
@@ -368,22 +368,22 @@ Example:
       (while remaining-paths
         (let* ((batch (cl-subseq remaining-paths 0 (min batch-size (length remaining-paths))))
                (batch-resources (condition-case _
-                                   (ecard-carddav-multiget-resources addressbook batch)
-                                 (error
-                                  ;; Multiget failed - try fetching individually
-                                  (mapcar (lambda (path)
-                                           (condition-case fetch-err
-                                               (ecard-carddav-get-resource addressbook path)
-                                             (error
-                                              (setq stats
-                                                    (ecard-carddav-map--update-stats
-                                                     stats
-                                                     :failed (1+ (plist-get stats :failed))
-                                                     :add-error (list :path path
-                                                                     :type 'fetch-error
-                                                                     :message (error-message-string fetch-err))))
-                                              nil)))
-                                         batch)))))
+                                    (ecard-carddav-multiget-resources addressbook batch)
+                                  (error
+                                   ;; Multiget failed - try fetching individually
+                                   (mapcar (lambda (path)
+                                             (condition-case fetch-err
+                                                 (ecard-carddav-get-resource addressbook path)
+                                               (error
+                                                (setq stats
+                                                      (ecard-carddav-map--update-stats
+                                                       stats
+                                                       :failed (1+ (plist-get stats :failed))
+                                                       :add-error (list :path path
+                                                                        :type 'fetch-error
+                                                                        :message (error-message-string fetch-err))))
+                                                nil)))
+                                           batch)))))
 
           ;; Process each resource in batch
           (dolist (resource batch-resources)
@@ -400,8 +400,8 @@ Example:
                                            stats
                                            :failed (1+ (plist-get stats :failed))
                                            :add-error (list :path (oref resource path)
-                                                           :type 'serialize-error
-                                                           :message (error-message-string serialize-err))))
+                                                            :type 'serialize-error
+                                                            :message (error-message-string serialize-err))))
                                     nil))))
                 (when before-data  ; Only process if serialization succeeded
                   ;; Call transformation function with error handling
@@ -413,35 +413,35 @@ Example:
                                           stats
                                           :failed (1+ (plist-get stats :failed))
                                           :add-error (list :path (oref resource path)
-                                                          :type 'transform-error
-                                                          :message (error-message-string transform-err))))
+                                                           :type 'transform-error
+                                                           :message (error-message-string transform-err))))
                                    nil))))
 
-                  ;; Handle result
-                  (pcase result
-                    (:delete
-                     ;; Delete resource
-                     (setq stats (ecard-carddav-map--handle-resource-delete
-                                 addressbook resource stats on-conflict)))
-                    (:skip
-                     ;; Skip resource
-                     (setq stats (ecard-carddav-map--update-stats
-                                 stats
-                                 :skipped (1+ (plist-get stats :skipped)))))
-                    ('t
-                     ;; Modification claimed - verify by change detection
-                     ;; Compare serialization before and after transformation
-                     (let ((after-data (ecard-serialize (oref resource ecard))))
-                       (if (not (string= before-data after-data))
-                           (setq stats (ecard-carddav-map--handle-resource-update
-                                       addressbook resource stats on-conflict))
-                         ;; No actual change detected - skip
-                         (setq stats (ecard-carddav-map--update-stats
-                                     stats
-                                     :skipped (1+ (plist-get stats :skipped)))))))
-                    (_
-                     ;; nil or other value - no change
-                     nil)))))
+                    ;; Handle result
+                    (pcase result
+                      (:delete
+                       ;; Delete resource
+                       (setq stats (ecard-carddav-map--handle-resource-delete
+                                    addressbook resource stats on-conflict)))
+                      (:skip
+                       ;; Skip resource
+                       (setq stats (ecard-carddav-map--update-stats
+                                    stats
+                                    :skipped (1+ (plist-get stats :skipped)))))
+                      ('t
+                       ;; Modification claimed - verify by change detection
+                       ;; Compare serialization before and after transformation
+                       (let ((after-data (ecard-serialize (oref resource ecard))))
+                         (if (not (string= before-data after-data))
+                             (setq stats (ecard-carddav-map--handle-resource-update
+                                          addressbook resource stats on-conflict))
+                           ;; No actual change detected - skip
+                           (setq stats (ecard-carddav-map--update-stats
+                                        stats
+                                        :skipped (1+ (plist-get stats :skipped)))))))
+                      (_
+                       ;; nil or other value - no change
+                       nil)))))
 
               ;; Call progress callback if provided
               (when (and progress-callback (zerop (mod processed 5)))

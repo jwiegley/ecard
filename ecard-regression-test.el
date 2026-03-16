@@ -283,8 +283,8 @@ END:VCARD"))
 Should either parse with limit or reject cleanly."
   (let* ((long-value (make-string 100000 ?A))  ; 100KB of A's
          (input (concat "BEGIN:VCARD\nVERSION:4.0\nFN:Test\nNOTE:"
-                       long-value
-                       "\nEND:VCARD")))
+                        long-value
+                        "\nEND:VCARD")))
     ;; Should either parse with limit or reject cleanly
     ;; Currently no limit - potential DoS
     (condition-case err
@@ -299,12 +299,12 @@ Should either parse with limit or reject cleanly."
   "Test handling of excessive property count (DoS vector).
 Should reject or limit property count."
   (let* ((emails (mapconcat (lambda (i)
-                             (format "EMAIL:test%d@example.com" i))
-                           (number-sequence 1 10000)
-                           "\n"))
+                              (format "EMAIL:test%d@example.com" i))
+                            (number-sequence 1 10000)
+                            "\n"))
          (input (concat "BEGIN:VCARD\nVERSION:4.0\nFN:Test\n"
-                       emails
-                       "\nEND:VCARD")))
+                        emails
+                        "\nEND:VCARD")))
     ;; Should reject or limit property count
     (condition-case err
         (let ((card (ecard-parse input)))

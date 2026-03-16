@@ -181,8 +181,8 @@ END:VCARD")
               (let* ((fn (ecard-get-property-value contact 'fn))
                      (safe-name (replace-regexp-in-string "[^a-zA-Z0-9-]" "_" fn))
                      (output-file (expand-file-name
-                                  (format "%s.vcf" safe-name)
-                                  output-dir)))
+                                   (format "%s.vcf" safe-name)
+                                   output-dir)))
 
                 (ecard-write-file contact output-file)
                 (setq converted (1+ converted)))))

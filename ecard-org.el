@@ -299,11 +299,11 @@ Returns a ecard object with FN, EMAIL, TEL, and ORG properties."
               (let ((prop-name (car prop))
                     (prop-value (cdr prop)))
                 (unless (or (member prop-name mapped-props)
-                           (member prop-name '("CATEGORY" "ITEM" "VCARD" "N")))
+                            (member prop-name '("CATEGORY" "ITEM" "VCARD" "N")))
                   (ecard-add-property vc
-                                     (intern (concat "x-org-" (downcase prop-name)))
-                                     prop-value
-                                     nil))))))
+                                      (intern (concat "x-org-" (downcase prop-name)))
+                                      prop-value
+                                      nil))))))
 
         vc))))
 
