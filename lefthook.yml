@@ -1,0 +1,27 @@
+pre-commit:
+  parallel: true
+  commands:
+    byte-compile:
+      glob: "*.el"
+      run: ./scripts/byte-compile.sh
+    test:
+      glob: "*.el"
+      run: ./scripts/test.sh
+    lint:
+      glob: "*.el"
+      run: ./scripts/lint.sh
+    format-check:
+      glob: "*.el"
+      run: ./scripts/check-format.sh
+    coverage:
+      glob: "*.el"
+      run: ./scripts/coverage.sh
+    perf-check:
+      glob: "*.el"
+      run: ./scripts/perf-check.sh
+    fuzz-test:
+      glob: "*.el"
+      run: ./scripts/fuzz-test.sh
+    nix-check:
+      glob: "*.{el,nix}"
+      run: nix flake check --no-warn-dirty 2>&1
