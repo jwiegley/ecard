@@ -27,6 +27,10 @@
 (require 'ecard-compat)
 (require 'cl-lib)
 
+(declare-function ecard-display-contact-quit "ecard-display")
+(declare-function ecard-display-contact-save "ecard-display")
+(declare-function ecard-display-contact-revert "ecard-display")
+
 ;;; Custom group
 
 (defgroup ecard-widget nil
@@ -63,8 +67,8 @@ or \"other\" if none match."
                  (mapcar #'string-trim (split-string type-val ",")))
                 (t nil))))
     ;; Find first matching valid type (case-insensitive)
-    (or (cl-find-if (lambda (t)
-                      (cl-member t valid-types :test #'string-equal-ignore-case))
+    (or (cl-find-if (lambda (ty)
+                      (cl-member ty valid-types :test #'string-equal-ignore-case))
                     types)
         "other")))
 

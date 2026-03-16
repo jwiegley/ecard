@@ -68,13 +68,13 @@
                (:predicate ecard-property-p))
   "Represents a single vCard property with optional group, parameters, and value."
   (group nil :type (or null string)
-   :documentation "Property group prefix (e.g., \"item1\" in \"item1.TEL\").")
+         :documentation "Property group prefix (e.g., \"item1\" in \"item1.TEL\").")
   (name "" :type string
-   :documentation "Property name in uppercase (e.g., \"TEL\", \"EMAIL\").")
+        :documentation "Property name in uppercase (e.g., \"TEL\", \"EMAIL\").")
   (parameters nil :type list
-   :documentation "Property parameters as alist ((PARAM-NAME . param-value) ...).")
+              :documentation "Property parameters as alist ((PARAM-NAME . param-value) ...).")
   (value "" :type (or string list)
-   :documentation "Property value; list for structured properties (N, ADR)."))
+         :documentation "Property value; list for structured properties (N, ADR)."))
 
 ;; Backward compatibility wrapper for old EIEIO-style constructor
 (defun ecard-property (&rest args)
@@ -283,17 +283,17 @@ Signals \\='invalid-slot-name error if SLOT-NAME is not a valid ecard slot."
     ('extended (setf (ecard-extended vc) value))
     (_ (signal 'invalid-slot-name (list slot-name 'ecard)))))
 
-(defun ecard--slot-exists-p (vc slot-name)
-  "Check if SLOT-NAME exists in ecard struct VC.
+(defun ecard--slot-exists-p (_vc slot-name)
+  "Check if SLOT-NAME exists in ecard struct _VC.
 SLOT-NAME can be a symbol like \\='fn or \\='email, or a keyword like \\=:fn.
 Always returns t for valid slot names, nil otherwise."
   ;; Normalize keyword to symbol (e.g., :note -> note)
   (when (keywordp slot-name)
     (setq slot-name (intern (substring (symbol-name slot-name) 1))))
   (memq slot-name '(version source kind xml fn n nickname photo bday anniversary
-                    gender adr tel email impp lang geo tz title role logo org
-                    member related categories note prodid rev sound uid
-                    clientpidmap url key fburl caladruri caluri extended)))
+                            gender adr tel email impp lang geo tz title role logo org
+                            member related categories note prodid rev sound uid
+                            clientpidmap url key fburl caladruri caluri extended)))
 
 ;;; Internal utility functions
 
@@ -524,51 +524,51 @@ For parameter values with colons (malformed), the separator is after all param c
     (if (null colon-positions)
         nil
       ;; Strategy: Determine if we have evenly-spaced colons (malformed param value)
-    ;; or a clear separator pattern (normal case with URI value)
-    ;; Malformed: X-AVAILABLE=09:00-17:00 has ALL gaps small (< 10 chars)
-    ;; Normal: TYPE=spouse:urn:uuid:foo has large gap before first colon
-    (let ((result nil))
-      (if (< last-equals 0)
-          ;; No equals sign - use first colon
-          (setq result (car colon-positions))
-        ;; Check if we have multiple colons after the equals sign
-        (let ((colons-after-equals (seq-filter (lambda (pos) (> pos last-equals))
-                                               colon-positions)))
-          (if (< (length colons-after-equals) 2)
-              ;; Only one colon after equals - use it
-              (setq result (car colons-after-equals))
-            ;; Multiple colons - check if they're all closely spaced (malformed)
-            ;; or if there's a clear separator (normal)
-            (let* ((gaps nil)
-                   (prev last-equals))
-              ;; Calculate gaps between consecutive colons
-              (dolist (colon-pos colons-after-equals)
-                (push (- colon-pos prev) gaps)
-                (setq prev colon-pos))
-              (setq gaps (nreverse gaps))
-              ;; If first gap is notably larger than average of remaining gaps,
-              ;; it's a normal separator (use first colon)
-              ;; Otherwise, malformed parameter value (use last colon)
-              (let* ((first-gap (car gaps))
-                     (remaining-gaps (cdr gaps))
-                     (avg-remaining (if remaining-gaps
-                                        (/ (apply #'+ remaining-gaps)
-                                           (float (length remaining-gaps)))
-                                      0)))
-                ;; Check if value after first colon looks like a URI
-                (let ((first-colon (car colons-after-equals))
-                      (after-first (substring str (1+ (car colons-after-equals)))))
-                  (if (string-match-p "^\\(https?\\|urn\\|ftp\\|file\\):" after-first)
-                      ;; Value starts with URI scheme - use first colon
-                      (setq result first-colon)
-                    ;; Not a URI - use gap analysis
-                    (if (> first-gap (* 1.5 avg-remaining))
-                        ;; First gap is significantly larger - normal case
-                        (setq result (car colons-after-equals))
-                      ;; Gaps are similar - malformed case
-                      (setq result (car (last colons-after-equals)))))))))))
-      ;; Fallback: if still no result, use first colon
-      (or result (car colon-positions))))))
+      ;; or a clear separator pattern (normal case with URI value)
+      ;; Malformed: X-AVAILABLE=09:00-17:00 has ALL gaps small (< 10 chars)
+      ;; Normal: TYPE=spouse:urn:uuid:foo has large gap before first colon
+      (let ((result nil))
+        (if (< last-equals 0)
+            ;; No equals sign - use first colon
+            (setq result (car colon-positions))
+          ;; Check if we have multiple colons after the equals sign
+          (let ((colons-after-equals (seq-filter (lambda (pos) (> pos last-equals))
+                                                 colon-positions)))
+            (if (< (length colons-after-equals) 2)
+                ;; Only one colon after equals - use it
+                (setq result (car colons-after-equals))
+              ;; Multiple colons - check if they're all closely spaced (malformed)
+              ;; or if there's a clear separator (normal)
+              (let* ((gaps nil)
+                     (prev last-equals))
+                ;; Calculate gaps between consecutive colons
+                (dolist (colon-pos colons-after-equals)
+                  (push (- colon-pos prev) gaps)
+                  (setq prev colon-pos))
+                (setq gaps (nreverse gaps))
+                ;; If first gap is notably larger than average of remaining gaps,
+                ;; it's a normal separator (use first colon)
+                ;; Otherwise, malformed parameter value (use last colon)
+                (let* ((first-gap (car gaps))
+                       (remaining-gaps (cdr gaps))
+                       (avg-remaining (if remaining-gaps
+                                          (/ (apply #'+ remaining-gaps)
+                                             (float (length remaining-gaps)))
+                                        0)))
+                  ;; Check if value after first colon looks like a URI
+                  (let ((first-colon (car colons-after-equals))
+                        (after-first (substring str (1+ (car colons-after-equals)))))
+                    (if (string-match-p "^\\(https?\\|urn\\|ftp\\|file\\):" after-first)
+                        ;; Value starts with URI scheme - use first colon
+                        (setq result first-colon)
+                      ;; Not a URI - use gap analysis
+                      (if (> first-gap (* 1.5 avg-remaining))
+                          ;; First gap is significantly larger - normal case
+                          (setq result (car colons-after-equals))
+                        ;; Gaps are similar - malformed case
+                        (setq result (car (last colons-after-equals)))))))))))
+        ;; Fallback: if still no result, use first colon
+        (or result (car colon-positions))))))
 
 (defun ecard--parse-property-line (line)
   "Parse a single vCard property LINE.
@@ -730,9 +730,9 @@ Returns list of folded lines."
 VC is the ecard object to validate.
 Signals `ecard-validation-error' if any PREF value is out of range."
   (dolist (slot '(fn n nickname photo bday anniversary gender adr tel email
-                  impp lang geo tz title role logo org member related
-                  categories note prodid rev sound uid clientpidmap url
-                  key fburl caladruri caluri source kind xml))
+                     impp lang geo tz title role logo org member related
+                     categories note prodid rev sound uid clientpidmap url
+                     key fburl caladruri caluri source kind xml))
     (let ((props (ecard--slot-value vc slot)))
       (dolist (prop props)
         (let ((params (ecard-property-parameters prop)))
@@ -950,9 +950,9 @@ Returns a properly formatted and folded vCard string."
 
     ;; Serialize all properties in defined order
     (dolist (slot '(source kind xml fn n nickname photo bday anniversary gender
-                    adr tel email impp lang geo tz title role logo org member related
-                    categories note prodid rev sound uid clientpidmap url
-                    key fburl caladruri caluri))
+                           adr tel email impp lang geo tz title role logo org member related
+                           categories note prodid rev sound uid clientpidmap url
+                           key fburl caladruri caluri))
       (let ((props (ecard--slot-value vc slot)))
         (when props
           (setq lines (append lines (ecard--serialize-properties props))))))
@@ -1100,12 +1100,12 @@ Example:
     ;; Handle ORG (structured organization) - convert string to list
     (when org
       (setf (ecard-org vc) (list (ecard-property :name "ORG"
-                                                  :value (if (listp org) org (list org))))))
+                                                 :value (if (listp org) org (list org))))))
 
     ;; Handle GENDER (structured) - convert string to list
     (when gender
       (setf (ecard-gender vc) (list (ecard-property :name "GENDER"
-                                                     :value (if (listp gender) gender (list gender))))))
+                                                    :value (if (listp gender) gender (list gender))))))
 
     ;; Handle ADR (structured address) - can be list of lists
     (when adr

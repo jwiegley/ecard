@@ -110,7 +110,7 @@ ITERATIONS defaults to 5 for large counts."
   "Benchmark line unfolding performance (test `ecard--unfold-lines' optimization)."
   (interactive)
   (let* ((long-line (concat "LONG-PROPERTY:This is a very long value that will be folded "
-                           (make-string 1000 ?x)))
+                            (make-string 1000 ?x)))
          (folded-ecard (format "BEGIN:VCARD\nVERSION:4.0\nFN:Test\n%s\nEND:VCARD" long-line))
          (iterations 1000)
          (start-time (current-time)))

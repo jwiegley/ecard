@@ -143,16 +143,16 @@
      (ecard-tools-result-create
       :success-p nil
       :errors (list (format "Error reading %s: %s"
-                           file-path (error-message-string err)))))))
+                            file-path (error-message-string err)))))))
 
 (defun ecard-tools-read-directory (directory &optional pattern recursive)
   "Read all VCard files from DIRECTORY matching optional PATTERN.
 If RECURSIVE is non-nil, search subdirectories."
   (let ((files (if recursive
                    (directory-files-recursively directory
-                                              (or pattern "\\.vcf\\'"))
+                                                (or pattern "\\.vcf\\'"))
                  (directory-files directory t
-                                (or pattern "\\.vcf\\'"))))
+                                  (or pattern "\\.vcf\\'"))))
         (vcards nil)
         (errors nil))
     (dolist (file files)
@@ -239,24 +239,24 @@ Optional CONTENT-FILTER string to filter entries."
 
     (when content-filter
       (setq vcards (seq-filter
-                   (lambda (vcard)
-                     (string-match-p content-filter
-                                   (ecard-tools-serialize vcard)))
-                   vcards)))
+                    (lambda (vcard)
+                      (string-match-p content-filter
+                                      (ecard-tools-serialize vcard)))
+                    vcards)))
 
     ;; Auto-repair all vcards
     (setq vcards (mapcar (lambda (vcard)
-                          (ecard-tools-result-data
-                           (ecard-tools-auto-repair vcard)))
-                        vcards))
+                           (ecard-tools-result-data
+                            (ecard-tools-auto-repair vcard)))
+                         vcards))
 
     (let ((write-result (ecard-tools-write-multiple vcards output-dir)))
       (if (ecard-tools-result-success-p write-result)
           (message "Split %d VCards to %s"
-                  (alist-get 'success (ecard-tools-result-stats write-result))
-                  output-dir)
+                   (alist-get 'success (ecard-tools-result-stats write-result))
+                   output-dir)
         (user-error "Split failed: %s"
-                   (ecard-tools-result-errors write-result))))))
+                    (ecard-tools-result-errors write-result))))))
 
 ;; ============================================================================
 ;; Tool 2: UID Adder (vcf_uid_adder.py port)
@@ -278,7 +278,7 @@ Optional CONTENT-FILTER string to filter entries."
           (ecard-tools-write-file vcard file-path))))
 
     (message "Added UIDs to %d VCards (out of %d total)"
-            modified (length vcards))))
+             modified (length vcards))))
 
 ;; ============================================================================
 ;; Tool 3: VCard Chunker (vcf-chunker.py port)
@@ -301,7 +301,7 @@ CHUNK-SIZE is in bytes (default 10MB)."
              (size (string-bytes serialized)))
 
         (when (and current-chunk
-                  (> (+ current-size size) chunk-size-bytes))
+                   (> (+ current-size size) chunk-size-bytes))
           ;; Save current chunk and start new one
           (push (nreverse current-chunk) chunks)
           (setq current-chunk nil
@@ -317,12 +317,12 @@ CHUNK-SIZE is in bytes (default 10MB)."
 
     ;; Write chunks to files
     (let ((base-name (file-name-sans-extension
-                     (file-name-nondirectory file))))
+                      (file-name-nondirectory file))))
       (cl-loop for chunk in (nreverse chunks)
                for i from 1
                do (let ((chunk-file (expand-file-name
-                                   (format "%s_chunk_%03d.vcf" base-name i)
-                                   output-dir)))
+                                     (format "%s_chunk_%03d.vcf" base-name i)
+                                     output-dir)))
                     (with-temp-file chunk-file
                       (dolist (vcard chunk)
                         (insert (ecard-tools-serialize vcard)))))))
@@ -338,7 +338,7 @@ CHUNK-SIZE is in bytes (default 10MB)."
 Identifies junk based on keywords and missing essential info."
   (interactive "DDirectory to clean: \nDTrash directory (optional): ")
   (let* ((trash-dir (or trash-dir
-                       (expand-file-name "trash" directory)))
+                        (expand-file-name "trash" directory)))
          (dir-hash (substring (md5 directory) 0 8))
          (trash-subdir (expand-file-name dir-hash trash-dir))
          (result (ecard-tools-read-directory directory))
@@ -353,27 +353,27 @@ Identifies junk based on keywords and missing essential info."
           (progn
             (when-let ((file-path (ecard-tools-vcard-file-path vcard)))
               (rename-file file-path
-                          (expand-file-name (file-name-nondirectory file-path)
-                                          trash-subdir)
-                          t))
+                           (expand-file-name (file-name-nondirectory file-path)
+                                             trash-subdir)
+                           t))
             (cl-incf (alist-get 'moved stats)))
         (cl-incf (alist-get 'kept stats))))
 
     (message "Cleaned %d VCards: %d moved to trash, %d kept"
-            (alist-get 'total stats)
-            (alist-get 'moved stats)
-            (alist-get 'kept stats))))
+             (alist-get 'total stats)
+             (alist-get 'moved stats)
+             (alist-get 'kept stats))))
 
 (defun ecard-tools--is-junk-vcard-p (vcard)
   "Check if VCARD is junk based on keywords and missing info."
   (or
    ;; Check for trash keywords in email
    (seq-some (lambda (email)
-              (seq-some (lambda (keyword)
-                         (string-match-p keyword
-                                       (downcase (ecard-tools-email-value email))))
-                       ecard-tools-trash-keywords))
-            (ecard-tools-vcard-email vcard))
+               (seq-some (lambda (keyword)
+                           (string-match-p keyword
+                                           (downcase (ecard-tools-email-value email))))
+                         ecard-tools-trash-keywords))
+             (ecard-tools-vcard-email vcard))
 
    ;; Check if empty (no name/org AND no contact info)
    (and (not (ecard-tools-vcard-fn vcard))
@@ -403,7 +403,7 @@ If DRY-RUN is non-nil, only report what would be done."
 
     (if dry-run
         (message "Would sort: %d with contact info, %d without"
-                (length with-contact) (length without-contact))
+                 (length with-contact) (length without-contact))
 
       (let ((complete-dir (expand-file-name "complete" dest-dir))
             (incomplete-dir (expand-file-name "incomplete" dest-dir)))
@@ -415,21 +415,21 @@ If DRY-RUN is non-nil, only report what would be done."
         (dolist (vcard with-contact)
           (when-let ((file-path (ecard-tools-vcard-file-path vcard)))
             (rename-file file-path
-                        (expand-file-name (file-name-nondirectory file-path)
-                                        complete-dir)
-                        t)))
+                         (expand-file-name (file-name-nondirectory file-path)
+                                           complete-dir)
+                         t)))
 
         (dolist (vcard without-contact)
           (when-let ((file-path (ecard-tools-vcard-file-path vcard)))
             (rename-file file-path
-                        (expand-file-name (file-name-nondirectory file-path)
-                                        incomplete-dir)
-                        t)))
+                         (expand-file-name (file-name-nondirectory file-path)
+                                           incomplete-dir)
+                         t)))
 
         (message "Sorted %d VCards: %d complete, %d incomplete"
-                (length vcards)
-                (length with-contact)
-                (length without-contact))))))
+                 (length vcards)
+                 (length with-contact)
+                 (length without-contact))))))
 
 ;; ============================================================================
 ;; Tool 6: Note Remover (vcf-note-remover.py port)
@@ -446,7 +446,7 @@ If DRY-RUN is non-nil, only report what would be done."
   (interactive "DDirectory: \nsKeywords to keep (comma-separated): ")
   (let* ((keywords (or (when keep-keywords
                          (split-string keep-keywords "," t))
-                      ecard-tools-note-keep-keywords))
+                       ecard-tools-note-keep-keywords))
          (result (ecard-tools-read-directory directory))
          (vcards (ecard-tools-result-data result))
          (modified 0))
@@ -454,9 +454,9 @@ If DRY-RUN is non-nil, only report what would be done."
     (dolist (vcard vcards)
       (when-let ((note (ecard-tools-vcard-note vcard)))
         (unless (seq-some (lambda (keyword)
-                           (string-match-p (regexp-quote keyword)
-                                         (downcase note)))
-                         keywords)
+                            (string-match-p (regexp-quote keyword)
+                                            (downcase note)))
+                          keywords)
           (setf (ecard-tools-vcard-note vcard) nil)
           (setf (ecard-tools-vcard-modified-p vcard) t)
           (cl-incf modified)
@@ -464,7 +464,7 @@ If DRY-RUN is non-nil, only report what would be done."
             (ecard-tools-write-file vcard file-path)))))
 
     (message "Removed notes from %d VCards (out of %d total)"
-            modified (length vcards))))
+             modified (length vcards))))
 
 ;; ============================================================================
 ;; Tool 7: Facebook Email Remover (vcf-facebook-email-remover.py port)
@@ -480,10 +480,10 @@ If DRY-RUN is non-nil, only report what would be done."
     (dolist (vcard vcards)
       (let ((original-count (length (ecard-tools-vcard-email vcard)))
             (filtered-emails (seq-remove
-                            (lambda (email)
-                              (string-match-p "@facebook\\.com$"
-                                            (ecard-tools-email-value email)))
-                            (ecard-tools-vcard-email vcard))))
+                              (lambda (email)
+                                (string-match-p "@facebook\\.com$"
+                                                (ecard-tools-email-value email)))
+                              (ecard-tools-vcard-email vcard))))
 
         (when (< (length filtered-emails) original-count)
           (setf (ecard-tools-vcard-email vcard) filtered-emails)
@@ -512,10 +512,10 @@ If DRY-RUN is non-nil, only report what would be done."
         (unless (string= raw cleaned)
           ;; Re-parse the cleaned vcard
           (let ((new-vcard (car (ecard-tools-parse-buffer
-                                (with-temp-buffer
-                                  (insert cleaned)
-                                  (current-buffer))
-                                (ecard-tools-vcard-file-path vcard)))))
+                                 (with-temp-buffer
+                                   (insert cleaned)
+                                   (current-buffer))
+                                 (ecard-tools-vcard-file-path vcard)))))
             (when new-vcard
               (cl-incf modified)
               (when-let ((file-path (ecard-tools-vcard-file-path vcard)))
@@ -536,7 +536,7 @@ If DRY-RUN is non-nil, only report what would be done."
     ;; Second pass: remove obsolete items
     (if obsolete-items
         (let ((pattern (format "^item\\(%s\\)\\."
-                              (mapconcat 'identity obsolete-items "\\|"))))
+                               (mapconcat 'identity obsolete-items "\\|"))))
           (replace-regexp-in-string pattern "" vcard-text))
       vcard-text)))
 
@@ -567,8 +567,8 @@ If DRY-RUN is non-nil, only report what would be done."
   "Generate simple key for VCARD based on name and email."
   (let ((name (downcase (or (ecard-tools-vcard-fn vcard) "")))
         (email (when (ecard-tools-vcard-email vcard)
-                (downcase (ecard-tools-email-value
-                          (car (ecard-tools-vcard-email vcard)))))))
+                 (downcase (ecard-tools-email-value
+                            (car (ecard-tools-vcard-email vcard)))))))
     (format "%s|%s" name (or email ""))))
 
 (defun ecard-tools--display-duplicates (duplicates)
@@ -583,11 +583,11 @@ If DRY-RUN is non-nil, only report what would be done."
             (vcard2 (cdr dup)))
         (insert (format "Duplicate pair:\n"))
         (insert (format "  1. %s (%s)\n"
-                       (ecard-tools-vcard-fn vcard1)
-                       (ecard-tools-vcard-file-path vcard1)))
+                        (ecard-tools-vcard-fn vcard1)
+                        (ecard-tools-vcard-file-path vcard1)))
         (insert (format "  2. %s (%s)\n\n"
-                       (ecard-tools-vcard-fn vcard2)
-                       (ecard-tools-vcard-file-path vcard2)))))
+                        (ecard-tools-vcard-fn vcard2)
+                        (ecard-tools-vcard-file-path vcard2)))))
 
     (goto-char (point-min))
     (display-buffer (current-buffer))))
@@ -613,7 +613,7 @@ If DRY-RUN is non-nil, only report what would be done."
                   '(("Content-Type" . "application/json")
                     ("Accept" . "application/json"))))
          (url-request-data (encode-coding-string
-                          (json-encode data) 'utf-8))
+                            (json-encode data) 'utf-8))
          (response (ecard-tools-http-response-create)))
 
     (condition-case err
@@ -675,13 +675,13 @@ AUTO-MERGE threshold for automatic merging (default 0.95)."
              for vcard1 = (nth i vcards)
              unless (gethash vcard1 processed)
              do (cl-loop for j from (1+ i) below (length vcards)
-                        for vcard2 = (nth j vcards)
-                        unless (gethash vcard2 processed)
-                        do (let ((similarity (ecard-tools--vcard-similarity
-                                            vcard1 vcard2)))
-                             (when (>= similarity threshold)
-                               (push (list vcard1 vcard2 similarity) duplicates)
-                               (puthash vcard2 processed t)))))
+                         for vcard2 = (nth j vcards)
+                         unless (gethash vcard2 processed)
+                         do (let ((similarity (ecard-tools--vcard-similarity
+                                               vcard1 vcard2)))
+                              (when (>= similarity threshold)
+                                (push (list vcard1 vcard2 similarity) duplicates)
+                                (puthash vcard2 processed t)))))
 
     (if duplicates
         (ecard-tools--process-ml-duplicates duplicates auto-merge)
@@ -697,14 +697,14 @@ Returns a value between 0.0 and 1.0."
     ;; Compare names
     (cl-incf total 1.0)
     (when (and (ecard-tools-vcard-fn vcard1)
-              (ecard-tools-vcard-fn vcard2))
+               (ecard-tools-vcard-fn vcard2))
       (cl-incf score (ecard-tools--string-similarity
-                     (downcase (ecard-tools-vcard-fn vcard1))
-                     (downcase (ecard-tools-vcard-fn vcard2)))))
+                      (downcase (ecard-tools-vcard-fn vcard1))
+                      (downcase (ecard-tools-vcard-fn vcard2)))))
 
     ;; Compare emails
     (when (and (ecard-tools-vcard-email vcard1)
-              (ecard-tools-vcard-email vcard2))
+               (ecard-tools-vcard-email vcard2))
       (cl-incf total 1.0)
       (let ((email1 (ecard-tools-email-value (car (ecard-tools-vcard-email vcard1))))
             (email2 (ecard-tools-email-value (car (ecard-tools-vcard-email vcard2)))))
@@ -713,11 +713,11 @@ Returns a value between 0.0 and 1.0."
 
     ;; Compare organization
     (when (and (ecard-tools-vcard-org vcard1)
-              (ecard-tools-vcard-org vcard2))
+               (ecard-tools-vcard-org vcard2))
       (cl-incf total 0.5)
       (cl-incf score (* 0.5 (ecard-tools--string-similarity
-                            (downcase (ecard-tools-vcard-org vcard1))
-                            (downcase (ecard-tools-vcard-org vcard2))))))
+                             (downcase (ecard-tools-vcard-org vcard1))
+                             (downcase (ecard-tools-vcard-org vcard2))))))
 
     (if (> total 0)
         (/ score total)
@@ -734,7 +734,7 @@ Simple implementation using Levenshtein distance ratio."
       (if (= max-len 0)
           1.0
         (- 1.0 (/ (float (ecard-tools--levenshtein-distance str1 str2))
-                 max-len))))))
+                  max-len))))))
 
 (defun ecard-tools--levenshtein-distance (str1 str2)
   "Calculate Levenshtein distance between STR1 and STR2."
@@ -757,7 +757,7 @@ Simple implementation using Levenshtein distance ratio."
                                            (1+ (aref dist j))        ; deletion
                                            (+ prev                   ; substitution
                                               (if (= (aref str1 (1- i))
-                                                    (aref str2 (1- j)))
+                                                     (aref str2 (1- j)))
                                                   0 1))))
                                 (setq prev temp)))))
 
@@ -778,15 +778,15 @@ Simple implementation using Levenshtein distance ratio."
         (insert (format "  1. %s\n" (or (ecard-tools-vcard-fn vcard1) "Unknown")))
         (when (ecard-tools-vcard-email vcard1)
           (insert (format "     Email: %s\n"
-                         (ecard-tools-email-value
-                          (car (ecard-tools-vcard-email vcard1))))))
+                          (ecard-tools-email-value
+                           (car (ecard-tools-vcard-email vcard1))))))
         (insert (format "     File: %s\n" (ecard-tools-vcard-file-path vcard1)))
 
         (insert (format "  2. %s\n" (or (ecard-tools-vcard-fn vcard2) "Unknown")))
         (when (ecard-tools-vcard-email vcard2)
           (insert (format "     Email: %s\n"
-                         (ecard-tools-email-value
-                          (car (ecard-tools-vcard-email vcard2))))))
+                          (ecard-tools-email-value
+                           (car (ecard-tools-vcard-email vcard2))))))
         (insert (format "     File: %s\n" (ecard-tools-vcard-file-path vcard2)))
 
         (if (>= similarity auto-merge)
@@ -825,11 +825,11 @@ Requires OpenAI API key to be set."
     (cl-loop for i from 0 below (length vcards)
              for vcard1 = (nth i vcards)
              do (cl-loop for j from (1+ i) below (length vcards)
-                        for vcard2 = (nth j vcards)
-                        do (let ((similarity (ecard-tools--vcard-similarity
-                                            vcard1 vcard2)))
-                             (when (>= similarity threshold)
-                               (push (list vcard1 vcard2 similarity) duplicates)))))
+                         for vcard2 = (nth j vcards)
+                         do (let ((similarity (ecard-tools--vcard-similarity
+                                               vcard1 vcard2)))
+                              (when (>= similarity threshold)
+                                (push (list vcard1 vcard2 similarity) duplicates)))))
     duplicates))
 
 (defun ecard-tools--process-ai-duplicates (duplicates)
@@ -844,7 +844,7 @@ Requires OpenAI API key to be set."
              (vcard2 (nth 1 dup))
              (similarity (nth 2 dup))
              (ai-decision (when (>= similarity ecard-tools-similarity-threshold)
-                           (ecard-tools--get-ai-merge-decision vcard1 vcard2 similarity))))
+                            (ecard-tools--get-ai-merge-decision vcard1 vcard2 similarity))))
 
         (insert (format "Similarity: %.2f%%\n" (* similarity 100)))
         (insert (format "VCard 1: %s\n" (or (ecard-tools-vcard-fn vcard1) "Unknown")))
@@ -852,9 +852,9 @@ Requires OpenAI API key to be set."
 
         (if ai-decision
             (insert (format "AI Decision: %s\n"
-                           (if (plist-get ai-decision :merge)
-                               "MERGE RECOMMENDED"
-                             "KEEP SEPARATE")))
+                            (if (plist-get ai-decision :merge)
+                                "MERGE RECOMMENDED"
+                              "KEEP SEPARATE")))
           (insert "AI Decision: ERROR OR SKIPPED\n"))
 
         (when (plist-get ai-decision :reasoning)
@@ -872,8 +872,8 @@ Requires OpenAI API key to be set."
 
     (when response
       (let ((content (cdr (assoc 'content
-                                (cdr (assoc 'message
-                                          (car (cdr (assoc 'choices response)))))))))
+                                 (cdr (assoc 'message
+                                             (car (cdr (assoc 'choices response)))))))))
         (ecard-tools--parse-ai-response content)))))
 
 (defun ecard-tools--format-ai-prompt (vcard1 vcard2 similarity)
@@ -912,12 +912,12 @@ Should these contacts be merged? Reply with 'Yes' or 'No' followed by brief reas
   "Call OpenAI API with PROMPT."
   (let* ((url "https://api.openai.com/v1/chat/completions")
          (data `((model . ,ecard-tools-openai-model)
-                (messages . [((role . "system")
-                             (content . "You are a contact deduplication assistant."))
-                            ((role . "user")
-                             (content . ,prompt))])
-                (temperature . 0.3)
-                (max_tokens . 150)))
+                 (messages . [((role . "system")
+                               (content . "You are a contact deduplication assistant."))
+                              ((role . "user")
+                               (content . ,prompt))])
+                 (temperature . 0.3)
+                 (max_tokens . 150)))
          (headers `(("Authorization" . ,(format "Bearer %s" ecard-tools-openai-api-key))))
          (response (ecard-tools-http-post url data headers)))
 
@@ -941,20 +941,20 @@ Should these contacts be merged? Reply with 'Yes' or 'No' followed by brief reas
   "Display interactive menu for VCard tools."
   (interactive)
   (let ((choice (completing-read
-                "VCard Tool: "
-                '("Split multi-entry file"
-                  "Add UIDs to VCards"
-                  "Chunk large file"
-                  "Clean directory"
-                  "Sort by completeness"
-                  "Remove notes"
-                  "Remove Facebook emails"
-                  "Fix Sunshine obsolete items"
-                  "Check duplicates (simple)"
-                  "Check duplicates (ML)"
-                  "Check duplicates (AI)"
-                  "Validate file"
-                  "Auto-repair directory"))))
+                 "VCard Tool: "
+                 '("Split multi-entry file"
+                   "Add UIDs to VCards"
+                   "Chunk large file"
+                   "Clean directory"
+                   "Sort by completeness"
+                   "Remove notes"
+                   "Remove Facebook emails"
+                   "Fix Sunshine obsolete items"
+                   "Check duplicates (simple)"
+                   "Check duplicates (ML)"
+                   "Check duplicates (AI)"
+                   "Validate file"
+                   "Auto-repair directory"))))
 
     (pcase choice
       ("Split multi-entry file" (call-interactively 'ecard-tools-split-file))
@@ -1004,135 +1004,7 @@ Should these contacts be merged? Reply with 'Yes' or 'No' followed by brief reas
           (cl-incf repaired)
           (when-let ((file-path (ecard-tools-vcard-file-path vcard)))
             (ecard-tools-write-file (ecard-tools-result-data repair-result)
-                                  file-path)))))
-
-    (message "Auto-repaired %d VCards (out of %d total)" repaired (length vcards))))
-
-;; ============================================================================
-;; HTTP Client for API Integration
-;; ============================================================================
-
-(cl-defstruct (ecard-tools-http-response
-               (:constructor ecard-tools-http-response-create))
-  "HTTP response structure."
-  (status nil :type (or null integer))
-  (headers nil :type list)
-  (body nil :type (or null string))
-  (json nil :type (or null list))
-  (error nil :type (or null string)))
-
-(defun ecard-tools-http-post (url data &optional headers)
-  "Perform HTTP POST request to URL with DATA and optional HEADERS."
-  (let* ((url-request-method "POST")
-         (url-request-extra-headers
-          (append headers
-                  '(("Content-Type" . "application/json")
-                    ("Accept" . "application/json"))))
-         (url-request-data (encode-coding-string
-                          (json-encode data) 'utf-8))
-         (response (ecard-tools-http-response-create)))
-
-    (condition-case err
-        (with-current-buffer
-            (url-retrieve-synchronously url t nil 30)
-          (goto-char (point-min))
-
-          ;; Parse status
-          (when (re-search-forward "^HTTP/[0-9.]+ \\([0-9]+\\)" nil t)
-            (setf (ecard-tools-http-response-status response)
-                  (string-to-number (match-string 1))))
-
-          ;; Find body
-          (when (search-forward "\n\n" nil t)
-            (let ((body (buffer-substring-no-properties (point) (point-max))))
-              (setf (ecard-tools-http-response-body response) body)
-
-              ;; Try to parse as JSON
-              (condition-case nil
-                  (setf (ecard-tools-http-response-json response)
-                        (json-read-from-string body))
-                (error nil))))
-
-          (kill-buffer))
-
-      (error
-       (setf (ecard-tools-http-response-error response)
-             (error-message-string err))))
-
-    response))
-
-;; ============================================================================
-;; Interactive Commands Menu
-;; ============================================================================
-
-(defun ecard-tools-menu ()
-  "Display interactive menu for VCard tools."
-  (interactive)
-  (let ((choice (completing-read
-                "VCard Tool: "
-                '("Split multi-entry file"
-                  "Add UIDs to VCards"
-                  "Chunk large file"
-                  "Clean directory"
-                  "Sort by completeness"
-                  "Remove notes"
-                  "Remove Facebook emails"
-                  "Fix Sunshine obsolete items"
-                  "Check duplicates (simple)"
-                  "Check duplicates (ML)"
-                  "Check duplicates (AI)"
-                  "Validate file"
-                  "Auto-repair directory"))))
-
-    (pcase choice
-      ("Split multi-entry file" (call-interactively 'ecard-tools-split-file))
-      ("Add UIDs to VCards" (call-interactively 'ecard-tools-add-uids))
-      ("Chunk large file" (call-interactively 'ecard-tools-chunk-file))
-      ("Clean directory" (call-interactively 'ecard-tools-cleanup-directory))
-      ("Sort by completeness" (call-interactively 'ecard-tools-sort-by-completeness))
-      ("Remove notes" (call-interactively 'ecard-tools-remove-notes))
-      ("Remove Facebook emails" (call-interactively 'ecard-tools-remove-facebook-emails))
-      ("Fix Sunshine obsolete items" (call-interactively 'ecard-tools-fix-sunshine-obsolete))
-      ("Check duplicates (simple)" (call-interactively 'ecard-tools-check-duplicates-simple))
-      ("Check duplicates (ML)" (call-interactively 'ecard-tools-check-duplicates-ml))
-      ("Check duplicates (AI)" (call-interactively 'ecard-tools-check-duplicates-ai))
-      ("Validate file" (call-interactively 'ecard-tools-validate-file))
-      ("Auto-repair directory" (call-interactively 'ecard-tools-auto-repair-directory)))))
-
-(defun ecard-tools-validate-file (file)
-  "Validate VCard FILE and report issues."
-  (interactive "fVCard file: ")
-  (let* ((vcards (ecard-tools-parse-file file))
-         (vcard (car vcards)))
-    (if vcard
-        (let ((result (ecard-tools-validate vcard t)))
-          (with-output-to-temp-buffer "*VCard Validation*"
-            (princ (format "File: %s\n\n" file))
-            (if (ecard-tools-result-success-p result)
-                (princ "✓ VCard is valid\n")
-              (princ "✗ VCard has errors:\n")
-              (dolist (err (ecard-tools-result-errors result))
-                (princ (format "  - %s\n" err))))
-            (when (ecard-tools-result-warnings result)
-              (princ "\nWarnings:\n")
-              (dolist (warn (ecard-tools-result-warnings result))
-                (princ (format "  - %s\n" warn))))))
-      (user-error "No VCard found in file"))))
-
-(defun ecard-tools-auto-repair-directory (directory)
-  "Auto-repair all VCards in DIRECTORY."
-  (interactive "DDirectory: ")
-  (let* ((result (ecard-tools-read-directory directory))
-         (vcards (ecard-tools-result-data result))
-         (repaired 0))
-
-    (dolist (vcard vcards)
-      (let ((repair-result (ecard-tools-auto-repair vcard)))
-        (when (ecard-tools-vcard-modified-p (ecard-tools-result-data repair-result))
-          (cl-incf repaired)
-          (when-let ((file-path (ecard-tools-vcard-file-path vcard)))
-            (ecard-tools-write-file (ecard-tools-result-data repair-result)
-                                  file-path)))))
+                                    file-path)))))
 
     (message "Auto-repaired %d VCards (out of %d total)" repaired (length vcards))))
 
